@@ -1,25 +1,19 @@
 import type { ComponentType, CSSProperties } from 'react';
 import { TIME_PRESETS, useGameStore } from '../game/store';
 import { audio } from '../game/audio';
+import { useT } from '../game/i18n';
 import { BoardSizeSwitch } from './BoardSizeSwitch';
 import { BackIcon, BotIcon, DuoIcon, GlobeIcon } from './icons';
 import type { GameMode } from '../game/types';
 
-const MODES: { mode: GameMode; label: string; hint: string; icon: ComponentType<{ className?: string }> }[] = [
-  { mode: 'bot', label: 'Vs Bot', hint: 'Gegen den Computer', icon: BotIcon },
-  { mode: 'local', label: 'Pass & Play', hint: 'Zwei Spieler, ein Gerät', icon: DuoIcon },
-  { mode: 'online', label: 'Online', hint: 'Gegen einen Freund', icon: GlobeIcon },
+const MODES: { mode: GameMode; labelKey: string; hintKey: string; icon: ComponentType<{ className?: string }> }[] = [
+  { mode: 'bot', labelKey: 'settings.modeBot', hintKey: 'settings.modeBotHint', icon: BotIcon },
+  { mode: 'local', labelKey: 'settings.modeLocal', hintKey: 'settings.modeLocalHint', icon: DuoIcon },
+  { mode: 'online', labelKey: 'settings.modeOnline', hintKey: 'settings.modeOnlineHint', icon: GlobeIcon },
 ];
 
-function difficultyLabel(percent: number): string {
-  if (percent >= 95) return 'Unschlagbar';
-  if (percent >= 70) return 'Schwer';
-  if (percent >= 40) return 'Mittel';
-  if (percent >= 15) return 'Leicht';
-  return 'Sehr leicht';
-}
-
 export function SettingsScreen() {
+  const t = useT();
   const size = useGameStore((s) => s.size);
   const mode = useGameStore((s) => s.mode);
   const difficulty = useGameStore((s) => s.difficulty);
@@ -31,24 +25,32 @@ export function SettingsScreen() {
   const playNow = useGameStore((s) => s.playNow);
   const goHome = useGameStore((s) => s.goHome);
 
+  const difficultyLabel = (percent: number): string => {
+    if (percent >= 95) return t('settings.diffUnbeatable');
+    if (percent >= 70) return t('settings.diffHard');
+    if (percent >= 40) return t('settings.diffMedium');
+    if (percent >= 15) return t('settings.diffEasy');
+    return t('settings.diffVeryEasy');
+  };
+
   return (
     <div className="screen settings-screen">
       <div className="settings-topbar">
-        <button className="icon-btn" onClick={() => { audio.playClick(); goHome(); }} aria-label="Zurück">
+        <button className="icon-btn" onClick={() => { audio.playClick(); goHome(); }} aria-label={t('lobby.back')}>
           <BackIcon className="icon-btn-svg" />
         </button>
-        <h1 className="settings-title">Einstellungen</h1>
+        <h1 className="settings-title">{t('settings.title')}</h1>
         <div className="icon-btn-spacer" />
       </div>
 
       <div className="settings-scroll">
         <section className="menu-section">
-          <h2>Spielfeld</h2>
+          <h2>{t('settings.board')}</h2>
           <BoardSizeSwitch value={size} onChange={(v) => { audio.playClick(); setSize(v); }} />
         </section>
 
         <section className="menu-section">
-          <h2>Modus</h2>
+          <h2>{t('settings.mode')}</h2>
           <div className="option-column">
             {MODES.map((m) => {
               const Icon = m.icon;
@@ -60,8 +62,8 @@ export function SettingsScreen() {
                 >
                   <Icon className="option-btn-icon" />
                   <span className="option-btn-text">
-                    <span className="option-btn-label">{m.label}</span>
-                    <span className="option-btn-hint">{m.hint}</span>
+                    <span className="option-btn-label">{t(m.labelKey)}</span>
+                    <span className="option-btn-hint">{t(m.hintKey)}</span>
                   </span>
                 </button>
               );
@@ -71,7 +73,7 @@ export function SettingsScreen() {
 
         {mode === 'bot' && (
           <section className="menu-section">
-            <h2>Bot-Schwierigkeit</h2>
+            <h2>{t('settings.difficulty')}</h2>
             <div className="difficulty-card">
               <div className="difficulty-readout">
                 <span className="difficulty-percent">{difficulty}%</span>
@@ -96,7 +98,7 @@ export function SettingsScreen() {
         )}
 
         <section className="menu-section">
-          <h2>Zeitkontrolle</h2>
+          <h2>{t('settings.timeControl')}</h2>
           <div className="option-row wrap">
             {TIME_PRESETS.map((preset, i) => (
               <button
@@ -104,7 +106,7 @@ export function SettingsScreen() {
                 className={`option-btn ${timeControlIndex === i ? 'selected' : ''}`}
                 onClick={() => { audio.playClick(); setTimeControlIndex(i); }}
               >
-                {preset.label}
+                {i === TIME_PRESETS.length - 1 ? t('settings.timeNoClock') : preset.label}
               </button>
             ))}
           </div>
@@ -112,7 +114,7 @@ export function SettingsScreen() {
       </div>
 
       <button className="primary-btn" onClick={() => { audio.playClick(); playNow(); }}>
-        {mode === 'online' ? 'Weiter' : 'Spiel starten'}
+        {mode === 'online' ? t('settings.continue') : t('settings.start')}
       </button>
     </div>
   );

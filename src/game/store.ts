@@ -14,6 +14,8 @@ import {
 } from './timer';
 import { MultiplayerSession, type ConnectionStatus, type NetMessage } from './multiplayer';
 import { haptics } from './haptics';
+import { stopConfetti } from './confetti';
+import type { Language } from './i18n';
 import type {
   BackgroundTheme,
   Board,
@@ -50,6 +52,12 @@ export const TIME_PRESETS: { label: string; timeControl: TimeControl }[] = [
 
 const UNLIMITED_TIME_CONTROL = TIME_PRESETS[4].timeControl;
 
+/** True for the "no clock" preset (and for campaign, which always uses it) — the HUD
+ * should render no time readout at all in that case, rather than a 24h countdown. */
+export function isUnlimitedTimeControl(tc: TimeControl): boolean {
+  return tc.initialMs === UNLIMITED_TIME_CONTROL.initialMs;
+}
+
 const SETTINGS_KEY = 'ttt3d:settings:v2';
 
 interface PersistedSettings {
@@ -73,6 +81,8 @@ interface PersistedSettings {
   accessibilityGlyphs: boolean;
   hapticsEnabled: boolean;
   stats: Stats;
+  onlineStats: Stats;
+  language: Language;
 }
 
 export interface Stats {
@@ -149,6 +159,9 @@ interface GameState {
   accessibilityGlyphs: boolean;
   hapticsEnabled: boolean;
   stats: Stats;
+  /** Local, device-only online win/loss record used to derive a "Rang" badge in the lobby. */
+  onlineStats: Stats;
+  language: Language;
   activeTimeControl: TimeControl;
   board: Board;
   blockedCells: Set<number>;
@@ -189,7 +202,9 @@ interface GameState {
   setAccessibilityGlyphs: (enabled: boolean) => void;
   setHapticsEnabled: (enabled: boolean) => void;
   resetStats: () => void;
+  setLanguage: (language: Language) => void;
   undo: () => void;
+  exitGame: () => void;
   playNow: () => void;
   startLocalGame: (size: BoardSize, timeControl: TimeControl) => void;
   startBotGame: (size: BoardSize, difficulty: Difficulty, timeControl: TimeControl) => void;
@@ -205,7 +220,7 @@ interface GameState {
   requestRematch: () => void;
   tick: () => void;
   __handleNetMessage: (message: NetMessage) => void;
-  __recordStat: (result: 'win' | 'loss' | 'draw') => void;
+  __recordStat: (result: 'win' | 'loss' | 'draw', online?: boolean) => void;
 }
 
 function canPlayerAct(
@@ -256,6 +271,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   accessibilityGlyphs: persisted.accessibilityGlyphs ?? false,
   hapticsEnabled: persisted.hapticsEnabled ?? true,
   stats: persisted.stats ?? { wins: 0, losses: 0, draws: 0 },
+  onlineStats: persisted.onlineStats ?? { wins: 0, losses: 0, draws: 0 },
+  language: persisted.language ?? 'de',
   activeTimeControl: timeControlFromIndex(persisted.timeControlIndex ?? DEFAULT_TIME_CONTROL_INDEX),
   board: createBoard(persisted.size ?? 4),
   blockedCells: EMPTY_BLOCKED as Set<number>,
@@ -273,6 +290,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   goHome: () => {
     get().online.session?.destroy();
+    stopConfetti();
     audio.playTrack('menu');
     set({
       screen: 'home',
@@ -383,6 +401,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     saveSettings({ stats });
     set({ stats });
   },
+  setLanguage: (language) => {
+    saveSettings({ language });
+    set({ language });
+  },
   undo: () => {
     const state = get();
     if (state.mode !== 'local') return;
@@ -402,6 +424,17 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
   },
 
+  /** The single "back" action used by every game HUD — resigns an in-progress game
+   * (so stats/opponents are notified) before returning home, or just goes home if the
+   * game already ended naturally. */
+  exitGame: () => {
+    const state = get();
+    if (!state.winner && !state.gameOverReason) {
+      state.resign();
+    }
+    state.goHome();
+  },
+
   playNow: () => {
     const state = get();
     const timeControl = timeControlFromIndex(state.timeControlIndex);
@@ -417,6 +450,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   startLocalGame: (size, timeControl) => {
     audio.playTrack('match');
+    const startingPlayer: Player = Math.random() < 0.5 ? 'X' : 'O';
     set((s) => ({
       screen: 'game',
       mode: 'local',
@@ -424,7 +458,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       activeTimeControl: timeControl,
       board: createBoard(size),
       blockedCells: EMPTY_BLOCKED as Set<number>,
-      turn: 'X',
+      turn: startingPlayer,
       localPlayer: 'X',
       winner: null,
       gameOverReason: null,
@@ -432,7 +466,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       lastMoveIndex: null,
       botThinking: false,
       history: [],
-      clock: startClock(createClockState(timeControl), 'X', Date.now()),
+      clock: startClock(createClockState(timeControl), startingPlayer, Date.now()),
       gameGeneration: s.gameGeneration + 1,
     }));
   },
@@ -552,6 +586,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   leaveOnline: () => {
     get().online.session?.send({ type: 'resign', player: get().localPlayer });
     get().online.session?.destroy();
+    stopConfetti();
     audio.playTrack('menu');
     set({
       screen: 'home',
@@ -616,7 +651,9 @@ export const useGameStore = create<GameState>((set, get) => ({
           haptics.lose();
         }
         if (state.mode === 'bot') get().__recordStat(winner.winner === state.localPlayer ? 'win' : 'loss');
+        if (state.mode === 'online') get().__recordStat(winner.winner === state.localPlayer ? 'win' : 'loss', true);
       }
+      if (reason === 'draw' && state.mode === 'online') get().__recordStat('draw', true);
       if (state.mode === 'campaign' && winner && winner.winner === state.localPlayer) {
         if (state.size === 3) {
           const nextLevel = state.campaignLevel3 + 1;
@@ -661,11 +698,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ gameOverReason: 'resign', winner: { winner: otherPlayer(state.localPlayer), line: [] }, clock: tickClock(state.clock, Date.now()) });
     if (state.mode === 'online') {
       state.online.session?.send({ type: 'resign', player: state.localPlayer });
+      get().__recordStat('loss', true);
     }
     if (state.mode === 'bot') get().__recordStat('loss');
   },
 
   rematch: () => {
+    stopConfetti();
     const state = get();
     if (state.mode === 'campaign') {
       state.startCampaignLevel(undefined, state.size);
@@ -711,6 +750,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         winner: { winner: otherPlayer(timedOutPlayer), line: [] },
       });
       if (state.mode === 'bot') get().__recordStat(localLost ? 'loss' : 'win');
+      if (state.mode === 'online') get().__recordStat(localLost ? 'loss' : 'win', true);
       return;
     }
     set({ clock });
@@ -750,14 +790,18 @@ export const useGameStore = create<GameState>((set, get) => ({
         ? tickClock(state.clock, now)
         : switchClock(state.clock, message.player, next, state.activeTimeControl, now);
       audio.playPlace(message.player);
-      if (reason === 'draw') audio.playDraw();
-      else if (winner) {
+      if (reason === 'draw') {
+        audio.playDraw();
+        get().__recordStat('draw', true);
+      } else if (winner) {
         if (winner.winner === state.localPlayer) audio.playWin();
         else audio.playLose();
+        get().__recordStat(winner.winner === state.localPlayer ? 'win' : 'loss', true);
       }
       set({ board, turn: next, winner, gameOverReason: reason, clock, moveCount: state.moveCount + 1, lastMoveIndex: message.index });
     } else if (message.type === 'resign') {
       audio.playWin();
+      get().__recordStat('win', true);
       set({ gameOverReason: 'resign', winner: { winner: otherPlayer(message.player), line: [] } });
     } else if (message.type === 'rematch-offer') {
       state.online.session?.send({ type: 'rematch-accept' });
@@ -767,14 +811,15 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
   },
 
-  __recordStat: (result) => {
+  __recordStat: (result, online) => {
     const state = get();
-    const stats: Stats = { ...state.stats };
+    const key = online ? 'onlineStats' : 'stats';
+    const stats: Stats = { ...state[key] };
     if (result === 'win') stats.wins += 1;
     else if (result === 'loss') stats.losses += 1;
     else stats.draws += 1;
-    saveSettings({ stats });
-    set({ stats });
+    saveSettings({ [key]: stats });
+    set({ [key]: stats } as Partial<GameState>);
   },
 }));
 

@@ -108,12 +108,31 @@ class SoundManager {
       this.sfxGain = this.ctx.createGain();
       this.sfxGain.gain.value = this.sfxEnabled ? this.sfxVolume : 0;
       this.sfxGain.connect(this.ctx.destination);
+
+      // iOS Safari (and some in-app webviews) needs an actual buffer source started
+      // synchronously inside the unlocking gesture — creating the context alone, or
+      // calling resume() without this, silently leaves audio dead on those browsers.
+      try {
+        const unlockBuffer = this.ctx.createBuffer(1, 1, 22050);
+        const unlockSource = this.ctx.createBufferSource();
+        unlockSource.buffer = unlockBuffer;
+        unlockSource.connect(this.ctx.destination);
+        unlockSource.start(0);
+      } catch {
+        // best-effort unlock — ignore if the platform doesn't need/like it
+      }
     }
     const wasSuspended = this.ctx.state === 'suspended';
     if (wasSuspended) {
       this.ctx.resume().then(() => this.resumeDesiredTrackIfNeeded()).catch(() => {});
     }
     return this.ctx;
+  }
+
+  /** Call from any real user-gesture handler (pointerdown/touchend/keydown) to make sure
+   * the context exists and is unlocked as early as possible, before anything tries to play. */
+  unlock() {
+    this.ensureContext();
   }
 
   /** Called after a (gesture-driven) context resume to catch up on music that couldn't play yet. */

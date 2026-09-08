@@ -1,10 +1,12 @@
 import { useGameStore } from '../game/store';
 import { audio } from '../game/audio';
-import { campaignBlockedCount, campaignDifficulty, CAMPAIGN_MAX_LEVEL } from '../game/campaign';
+import { useT } from '../game/i18n';
+import { campaignBlockedCount, campaignDifficulty } from '../game/campaign';
 import { BackIcon, TrophyIcon } from './icons';
 import { BoardSizeSwitch } from './BoardSizeSwitch';
 
 export function CampaignScreen() {
+  const t = useT();
   const campaignBoardSize = useGameStore((s) => s.campaignBoardSize);
   const campaignLevel3 = useGameStore((s) => s.campaignLevel3);
   const campaignLevel4 = useGameStore((s) => s.campaignLevel4);
@@ -25,10 +27,10 @@ export function CampaignScreen() {
   return (
     <div className="screen campaign-screen">
       <div className="settings-topbar">
-        <button className="icon-btn" onClick={() => { audio.playClick(); goHome(); }} aria-label="Zurück">
+        <button className="icon-btn" onClick={() => { audio.playClick(); goHome(); }} aria-label={t('lobby.back')}>
           <BackIcon className="icon-btn-svg" />
         </button>
-        <h1 className="settings-title">Level-Modus</h1>
+        <h1 className="settings-title">{t('campaign.title')}</h1>
         <div className="icon-btn-spacer" />
       </div>
 
@@ -37,25 +39,25 @@ export function CampaignScreen() {
 
         <div className="campaign-hero">
           <TrophyIcon className="campaign-trophy" />
-          <div className="campaign-level-number">Level {campaignLevel}</div>
-          <div className="campaign-level-sub">von {CAMPAIGN_MAX_LEVEL} · {campaignBoardSize}×{campaignBoardSize}×{campaignBoardSize}</div>
+          <div className="campaign-level-number">{t('cosmetics.level', { n: campaignLevel })}</div>
+          <div className="campaign-level-sub">{t('campaign.of')} · {campaignBoardSize}×{campaignBoardSize}×{campaignBoardSize}</div>
         </div>
 
         <div className="campaign-stats">
           <div className="campaign-stat">
-            <span className="campaign-stat-label">Bot-Stärke</span>
+            <span className="campaign-stat-label">{t('campaign.botStrength')}</span>
             <span className="campaign-stat-value">{difficulty}%</span>
           </div>
           {blockedCount > 0 && (
             <div className="campaign-stat">
-              <span className="campaign-stat-label">Gesperrte Felder</span>
+              <span className="campaign-stat-label">{t('campaign.blockedCells')}</span>
               <span className="campaign-stat-value">{blockedCount}</span>
             </div>
           )}
         </div>
 
         <section className="menu-section">
-          <h2>Scoreboard</h2>
+          <h2>{t('campaign.scoreboard')}</h2>
           <div className="scoreboard-row">
             <span className="scoreboard-name">{playerName}</span>
             <span className="scoreboard-level">3×3: Lvl {campaignLevel3}</span>
@@ -64,15 +66,12 @@ export function CampaignScreen() {
             <span className="scoreboard-name">{playerName}</span>
             <span className="scoreboard-level">4×4: Lvl {campaignLevel4}</span>
           </div>
-          <p className="field-hint">
-            Beide Level-Läufe laufen unabhängig voneinander. Aktuell nur lokal auf diesem Gerät gespeichert — ein
-            geteiltes Online-Scoreboard kommt, sobald der Mehrspieler-Server steht.
-          </p>
+          <p className="field-hint">{t('campaign.scoreboardHint')}</p>
         </section>
       </div>
 
       <button className="primary-btn" onClick={start}>
-        Level {campaignLevel} starten
+        {t('campaign.start', { n: campaignLevel })}
       </button>
     </div>
   );

@@ -1,11 +1,13 @@
 import { lazy, Suspense } from 'react';
 import { useGameStore } from '../game/store';
 import { audio } from '../game/audio';
+import { useT } from '../game/i18n';
 import { PlayIcon, CosmeticsIcon, SettingsIcon, TrophyIcon } from './icons';
 
 const IdleCube = lazy(() => import('../three/IdleCube').then((m) => ({ default: m.IdleCube })));
 
 export function HomeScreen() {
+  const t = useT();
   const background = useGameStore((s) => s.background);
   const markerColorTheme = useGameStore((s) => s.markerColorTheme);
   const markerShape = useGameStore((s) => s.markerShape);
@@ -32,7 +34,7 @@ export function HomeScreen() {
         <div className="home-backdrop-fade" />
       </div>
 
-      <button className="app-settings-btn" onClick={click(goToAppSettings)} aria-label="App-Einstellungen">
+      <button className="app-settings-btn" onClick={click(goToAppSettings)} aria-label={t('appSettings.title')}>
         <SettingsIcon className="icon-btn-svg" />
       </button>
 
@@ -46,20 +48,20 @@ export function HomeScreen() {
           <nav className="home-nav">
             <button className="nav-tile nav-tile-primary" onClick={click(playNow)}>
               <PlayIcon className="nav-icon" />
-              <span className="nav-label">Play</span>
+              <span className="nav-label">{t('home.play')}</span>
             </button>
             <button className="nav-tile" onClick={click(goToCampaign)}>
               <TrophyIcon className="nav-icon" />
-              <span className="nav-label">Level-Modus</span>
+              <span className="nav-label">{t('home.campaign')}</span>
               <span className="nav-badge">Lvl {bestCampaignLevel}</span>
             </button>
             <button className="nav-tile" onClick={click(goToCosmetics)}>
               <CosmeticsIcon className="nav-icon" />
-              <span className="nav-label">Cosmetics</span>
+              <span className="nav-label">{t('home.cosmetics')}</span>
             </button>
             <button className="nav-tile" onClick={click(goToSettings)}>
               <SettingsIcon className="nav-icon" />
-              <span className="nav-label">Settings</span>
+              <span className="nav-label">{t('home.settings')}</span>
             </button>
           </nav>
         </div>

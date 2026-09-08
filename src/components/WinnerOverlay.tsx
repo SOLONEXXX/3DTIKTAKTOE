@@ -2,8 +2,8 @@ import { useState } from 'react';
 import type { GameOverReason } from '../game/store';
 import type { GameMode, Player } from '../game/types';
 import { audio } from '../game/audio';
+import { useT } from '../game/i18n';
 import { COLOR_THEMES, SHAPES } from '../game/cosmetics';
-import { CAMPAIGN_MAX_LEVEL } from '../game/campaign';
 import { ShareIcon } from './icons';
 
 interface WinnerOverlayProps {
@@ -16,28 +16,8 @@ interface WinnerOverlayProps {
   onMenu: () => void;
 }
 
-function reasonLabel(reason: GameOverReason): string {
-  switch (reason) {
-    case 'timeout':
-      return 'nach Zeitablauf';
-    case 'resign':
-      return 'durch Aufgabe';
-    case 'opponent-left':
-      return 'Gegner hat die Verbindung getrennt';
-    default:
-      return '';
-  }
-}
-
-function unlockedAt(level: number): string | null {
-  const color = COLOR_THEMES.find((c) => c.unlockLevel === level);
-  if (color) return `Farbschema "${color.label}"`;
-  const shape = SHAPES.find((s) => s.unlockLevel === level);
-  if (shape) return `Form "${shape.label}"`;
-  return null;
-}
-
 export function WinnerOverlay({ winner, reason, mode, localPlayer, campaignLevel, onRematch, onMenu }: WinnerOverlayProps) {
+  const t = useT();
   const [shared, setShared] = useState(false);
   if (!reason) return null;
 
@@ -47,39 +27,45 @@ export function WinnerOverlay({ winner, reason, mode, localPlayer, campaignLevel
   let unlock: string | null = null;
 
   if (reason === 'draw') {
-    headline = isCampaign ? `Unentschieden — Level ${campaignLevel} nochmal!` : 'Unentschieden!';
+    headline = isCampaign ? t('winner.drawCampaign', { n: campaignLevel }) : t('winner.draw');
   } else if (winner) {
     const isLocalWinner = (mode === 'bot' || mode === 'online' || mode === 'campaign') && winner === localPlayer;
     const isLocalLoser = (mode === 'bot' || mode === 'online' || mode === 'campaign') && winner !== localPlayer;
     if (isLocalWinner) {
       variant = 'win';
       if (isCampaign) {
-        headline = campaignLevel >= CAMPAIGN_MAX_LEVEL ? 'Alle 100 Level gemeistert! 🏆' : `Level ${campaignLevel} geschafft! 🎉`;
-        unlock = unlockedAt(campaignLevel + 1);
+        headline = t('winner.winCampaign', { n: campaignLevel });
+        const nextLevel = campaignLevel + 1;
+        const color = COLOR_THEMES.find((c) => c.unlockLevel === nextLevel);
+        const shape = SHAPES.find((s) => s.unlockLevel === nextLevel);
+        unlock = color ? t('winner.unlockColor', { label: color.label }) : shape ? t('winner.unlockShape', { label: shape.label }) : null;
       } else {
-        headline = 'Du gewinnst! 🎉';
+        headline = t('winner.win');
       }
     } else if (isLocalLoser) {
-      headline = isCampaign ? `Verloren — Level ${campaignLevel} nochmal versuchen` : 'Verloren';
+      headline = isCampaign ? t('winner.loseCampaign', { n: campaignLevel }) : t('winner.lose');
       variant = 'lose';
     } else {
-      headline = `Spieler ${winner} gewinnt!`;
+      headline = t('winner.winsGeneric', { p: winner });
       variant = 'win';
     }
   } else {
-    headline = 'Spiel beendet';
+    headline = t('winner.gameOver');
   }
 
-  const detail = reasonLabel(reason);
-  const rematchLabel = isCampaign
-    ? variant === 'win' && campaignLevel < CAMPAIGN_MAX_LEVEL
-      ? `Level ${campaignLevel + 1} →`
-      : `Level ${campaignLevel} wiederholen`
-    : 'Rematch';
+  const detail =
+    reason === 'timeout' ? t('winner.reasonTimeout')
+    : reason === 'resign' ? t('winner.reasonResign')
+    : reason === 'opponent-left' ? t('winner.reasonOpponentLeft')
+    : '';
 
-  const shareText = isCampaign
-    ? `Ich habe gerade Level ${campaignLevel} in 3D Tic-Tac-Toe geschafft! 🎉`
-    : 'Ich habe gerade in 3D Tic-Tac-Toe gewonnen! 🎉';
+  const rematchLabel = isCampaign
+    ? variant === 'win'
+      ? t('winner.nextLevel', { n: campaignLevel + 1 })
+      : t('winner.retryLevel', { n: campaignLevel })
+    : t('winner.rematch');
+
+  const shareText = isCampaign ? t('winner.shareTextCampaign', { n: campaignLevel }) : t('winner.shareTextWin');
 
   const handleShare = async () => {
     audio.playClick();
@@ -103,7 +89,7 @@ export function WinnerOverlay({ winner, reason, mode, localPlayer, campaignLevel
       <div className={`overlay-card overlay-${variant}`}>
         <h2>{headline}</h2>
         {detail && <p className="overlay-detail">{detail}</p>}
-        {unlock && <p className="overlay-unlock">🔓 Neu freigeschaltet: {unlock}</p>}
+        {unlock && <p className="overlay-unlock">{t('winner.unlocked', { what: unlock })}</p>}
         <div className="overlay-actions">
           {reason !== 'opponent-left' && (
             <button className="primary-btn" onClick={() => { audio.playClick(); onRematch(); }}>
@@ -113,11 +99,11 @@ export function WinnerOverlay({ winner, reason, mode, localPlayer, campaignLevel
           {variant === 'win' && (
             <button className="primary-btn secondary" onClick={handleShare}>
               <ShareIcon className="icon-btn-svg inline-icon" />
-              {shared ? 'Kopiert!' : 'Teilen'}
+              {shared ? t('winner.shared') : t('winner.share')}
             </button>
           )}
           <button className="primary-btn secondary" onClick={() => { audio.playClick(); onMenu(); }}>
-            Hauptmenü
+            {t('winner.menu')}
           </button>
         </div>
       </div>

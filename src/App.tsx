@@ -30,13 +30,21 @@ function App() {
 
   useEffect(() => {
     // Browsers only allow audio once a real user gesture has happened — kick off
-    // the context-appropriate music track on the very first tap anywhere in the app.
+    // the context-appropriate music track on the very first such gesture anywhere in the
+    // app. Some mobile browsers (notably iOS Safari) don't count a bare "pointerdown" as
+    // a valid unlocking gesture, so listen broadly and unlock exactly once.
+    let unlocked = false;
     const startOnFirstInteraction = () => {
+      if (unlocked) return;
+      unlocked = true;
+      audio.unlock();
       const state = useGameStore.getState();
       audio.playTrack(trackForScreen(state.screen, state.mode));
+      events.forEach((event) => window.removeEventListener(event, startOnFirstInteraction));
     };
-    window.addEventListener('pointerdown', startOnFirstInteraction, { once: true });
-    return () => window.removeEventListener('pointerdown', startOnFirstInteraction);
+    const events: (keyof WindowEventMap)[] = ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'];
+    events.forEach((event) => window.addEventListener(event, startOnFirstInteraction, { passive: true }));
+    return () => events.forEach((event) => window.removeEventListener(event, startOnFirstInteraction));
   }, []);
 
   return (
@@ -47,7 +55,7 @@ function App() {
       {screen === 'app-settings' && <AppSettingsScreen />}
       {screen === 'campaign' && <CampaignScreen />}
       {screen === 'lobby' && <OnlineLobby onBack={goHome} />}
-      {screen === 'game' && <GameScreen onExit={goHome} />}
+      {screen === 'game' && <GameScreen />}
     </div>
   );
 }

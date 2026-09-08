@@ -3,8 +3,6 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import type { Board, BoardSize, MarkerShape } from '../game/types';
 import { CubeGrid } from './CubeGrid';
-import { RefreshIcon } from '../components/icons';
-import { audio } from '../game/audio';
 
 interface SceneProps {
   board: Board;
@@ -28,8 +26,6 @@ export function Scene({ board, size, winLine, focusedLayer, interactive, blocked
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef(false);
   const downPos = useRef({ x: 0, y: 0 });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const controlsRef = useRef<any>(null);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -80,7 +76,6 @@ export function Scene({ board, size, winLine, focusedLayer, interactive, blocked
           onTap={onTap}
         />
         <OrbitControls
-          ref={controlsRef}
           enablePan={false}
           enableZoom
           minDistance={size * 1.4}
@@ -91,18 +86,6 @@ export function Scene({ board, size, winLine, focusedLayer, interactive, blocked
           dampingFactor={0.12}
         />
       </Canvas>
-      <button
-        type="button"
-        className="camera-reset-btn"
-        onClick={(e) => {
-          e.stopPropagation();
-          audio.playClick();
-          controlsRef.current?.reset();
-        }}
-        aria-label="Kamera zurücksetzen"
-      >
-        <RefreshIcon className="icon-btn-svg" />
-      </button>
     </div>
   );
 }

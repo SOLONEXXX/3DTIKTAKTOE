@@ -1,29 +1,49 @@
 import { lazy, Suspense } from 'react';
 import { useGameStore } from '../game/store';
 import { audio } from '../game/audio';
+import { useT } from '../game/i18n';
 import { BackIcon, LockIcon } from './icons';
+import { ShapeIcon } from './ShapeIcon';
 
 const IdleCube = lazy(() => import('../three/IdleCube').then((m) => ({ default: m.IdleCube })));
-import { COLOR_THEMES, SHAPES, SOLO_COLORS, isColorThemeUnlocked, isShapeUnlocked } from '../game/cosmetics';
+import { COLOR_THEMES, SHAPES, SOLO_COLORS, colorThemeDef, isColorThemeUnlocked, isShapeUnlocked } from '../game/cosmetics';
 import type { BackgroundTheme } from '../game/types';
 
-const THEMES: { id: BackgroundTheme; label: string }[] = [
-  { id: 'nebula', label: 'Nebel' },
-  { id: 'ocean', label: 'Ozean' },
-  { id: 'sunset', label: 'Sonnenuntergang' },
-  { id: 'starfield', label: 'Sternenfeld' },
-  { id: 'aurora', label: 'Aurora' },
-  { id: 'matrix', label: 'Matrix' },
-  { id: 'lava', label: 'Lava' },
-  { id: 'crystal', label: 'Kristall' },
-  { id: 'void', label: 'Leere' },
-  { id: 'sakura', label: 'Sakura' },
-  { id: 'desert', label: 'Wüste' },
-  { id: 'abyss', label: 'Abgrund' },
-  { id: 'plasma', label: 'Plasma' },
-  { id: 'frost', label: 'Frost' },
-  { id: 'copper', label: 'Kupfer' },
+const THEME_IDS: BackgroundTheme[] = [
+  'nebula',
+  'ocean',
+  'sunset',
+  'starfield',
+  'aurora',
+  'matrix',
+  'lava',
+  'crystal',
+  'void',
+  'sakura',
+  'desert',
+  'abyss',
+  'plasma',
+  'frost',
+  'copper',
 ];
+
+const THEME_LABELS: Record<BackgroundTheme, string> = {
+  nebula: 'Nebel',
+  ocean: 'Ozean',
+  sunset: 'Sonnenuntergang',
+  starfield: 'Sternenfeld',
+  aurora: 'Aurora',
+  matrix: 'Matrix',
+  lava: 'Lava',
+  crystal: 'Kristall',
+  void: 'Leere',
+  sakura: 'Sakura',
+  desert: 'Wüste',
+  abyss: 'Abgrund',
+  plasma: 'Plasma',
+  frost: 'Frost',
+  copper: 'Kupfer',
+};
 
 export function CosmeticsScreen() {
   const background = useGameStore((s) => s.background);
@@ -39,14 +59,16 @@ export function CosmeticsScreen() {
   const campaignLevel = Math.max(campaignLevel3, campaignLevel4);
   const cheatUnlockAll = useGameStore((s) => s.cheatUnlockAll);
   const goHome = useGameStore((s) => s.goHome);
+  const t = useT();
+  const previewAccent = colorThemeDef(markerColorTheme).xColor;
 
   return (
     <div className="screen cosmetics-screen">
       <div className="settings-topbar">
-        <button className="icon-btn" onClick={() => { audio.playClick(); goHome(); }} aria-label="Zurück">
+        <button className="icon-btn" onClick={() => { audio.playClick(); goHome(); }} aria-label={t('lobby.back')}>
           <BackIcon className="icon-btn-svg" />
         </button>
-        <h1 className="settings-title">Cosmetics</h1>
+        <h1 className="settings-title">{t('cosmetics.title')}</h1>
         <div className="icon-btn-spacer" />
       </div>
 
@@ -58,23 +80,23 @@ export function CosmeticsScreen() {
 
       <div className="settings-scroll">
         <section className="menu-section">
-          <h2>Würfel-Hintergrund</h2>
+          <h2>{t('cosmetics.background')}</h2>
           <div className="theme-grid">
-            {THEMES.map((t) => (
+            {THEME_IDS.map((id) => (
               <button
-                key={t.id}
-                className={`theme-card ${background === t.id ? 'selected' : ''}`}
-                onClick={() => { audio.playClick(); setBackground(t.id); }}
+                key={id}
+                className={`theme-card ${background === id ? 'selected' : ''}`}
+                onClick={() => { audio.playClick(); setBackground(id); }}
               >
-                <div className={`theme-swatch bg-${t.id}`} />
-                <span>{t.label}</span>
+                <div className={`theme-swatch bg-${id}`} />
+                <span>{THEME_LABELS[id]}</span>
               </button>
             ))}
           </div>
         </section>
 
         <section className="menu-section">
-          <h2>Farbschema</h2>
+          <h2>{t('cosmetics.colorTheme')}</h2>
           <div className="theme-grid">
             {COLOR_THEMES.map((c) => {
               const unlocked = cheatUnlockAll || isColorThemeUnlocked(c.id, campaignLevel);
@@ -89,7 +111,7 @@ export function CosmeticsScreen() {
                     {!unlocked && <LockIcon className="lock-icon" />}
                   </div>
                   <span>{c.label}</span>
-                  {!unlocked && <span className="unlock-hint">Level {c.unlockLevel}</span>}
+                  {!unlocked && <span className="unlock-hint">{t('cosmetics.level', { n: c.unlockLevel })}</span>}
                 </button>
               );
             })}
@@ -97,9 +119,9 @@ export function CosmeticsScreen() {
         </section>
 
         <section className="menu-section">
-          <h2>Mein Look (Mehrspieler)</h2>
+          <h2>{t('cosmetics.myLook')}</h2>
           <p className="field-hint" style={{ margin: '0 0 10px' }}>
-            Nur deine eigene Farbe im Online-Modus — unabhängig vom Farbschema und ohne Einfluss auf deinen Gegner.
+            {t('cosmetics.myLookHint')}
           </p>
           <div className="solo-color-grid">
             {SOLO_COLORS.map((c) => (
@@ -108,14 +130,14 @@ export function CosmeticsScreen() {
                 className={`solo-color-swatch ${onlineMyColor === c ? 'selected' : ''}`}
                 style={{ background: c }}
                 onClick={() => { audio.playClick(); setOnlineMyColor(c); }}
-                aria-label={`Meine Farbe: ${c}`}
+                aria-label={c}
               />
             ))}
           </div>
         </section>
 
         <section className="menu-section">
-          <h2>Form</h2>
+          <h2>{t('cosmetics.shape')}</h2>
           <div className="theme-grid">
             {SHAPES.map((s) => {
               const unlocked = cheatUnlockAll || isShapeUnlocked(s.id, campaignLevel);
@@ -126,11 +148,12 @@ export function CosmeticsScreen() {
                   onClick={() => { if (unlocked) { audio.playClick(); setMarkerShape(s.id); } }}
                   disabled={!unlocked}
                 >
-                  <div className="theme-swatch shape-swatch">
+                  <div className="theme-swatch shape-swatch" style={{ color: previewAccent }}>
+                    <ShapeIcon shape={s.id} className="shape-swatch-icon" />
                     {!unlocked && <LockIcon className="lock-icon" />}
                   </div>
                   <span>{s.label}</span>
-                  {!unlocked && <span className="unlock-hint">Level {s.unlockLevel}</span>}
+                  {!unlocked && <span className="unlock-hint">{t('cosmetics.level', { n: s.unlockLevel })}</span>}
                 </button>
               );
             })}
