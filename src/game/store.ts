@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { applyMove, checkWinner, createBoard, isBoardFull, otherPlayer } from './board';
 import { requestBotMove } from './aiClient';
+import { botMoveDelayMs } from './ai';
 import {
   createClockState,
   hasTimedOut,
@@ -10,9 +11,18 @@ import {
   type ClockState,
 } from './timer';
 import { MultiplayerSession, type ConnectionStatus, type NetMessage } from './multiplayer';
-import type { Board, BoardSize, Difficulty, GameMode, Player, TimeControl, WinResult } from './types';
+import type {
+  BackgroundTheme,
+  Board,
+  BoardSize,
+  Difficulty,
+  GameMode,
+  Player,
+  TimeControl,
+  WinResult,
+} from './types';
 
-export type Screen = 'menu' | 'lobby' | 'game';
+export type Screen = 'home' | 'settings' | 'cosmetics' | 'lobby' | 'game';
 export type GameOverReason = 'line' | 'draw' | 'timeout' | 'resign' | 'opponent-left' | null;
 
 export function timeControlFromIndex(index: number): TimeControl {
@@ -27,6 +37,37 @@ export const TIME_PRESETS: { label: string; timeControl: TimeControl }[] = [
   { label: 'No clock', timeControl: { initialMs: 24 * 60 * 60_000, incrementMs: 0 } },
 ];
 
+const SETTINGS_KEY = 'ttt3d:settings:v1';
+
+interface PersistedSettings {
+  size: BoardSize;
+  mode: GameMode;
+  difficulty: Difficulty;
+  timeControlIndex: number;
+  background: BackgroundTheme;
+}
+
+function loadSettings(): Partial<PersistedSettings> {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) as Partial<PersistedSettings>;
+  } catch {
+    return {};
+  }
+}
+
+function saveSettings(patch: Partial<PersistedSettings>) {
+  try {
+    const current = loadSettings();
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...current, ...patch }));
+  } catch {
+    // Storage unavailable (private browsing, disabled) — settings just won't persist.
+  }
+}
+
+const persisted = loadSettings();
+
 interface OnlineState {
   session: MultiplayerSession | null;
   status: ConnectionStatus;
@@ -40,7 +81,9 @@ interface GameState {
   size: BoardSize;
   mode: GameMode;
   difficulty: Difficulty;
-  timeControl: TimeControl;
+  timeControlIndex: number;
+  background: BackgroundTheme;
+  activeTimeControl: TimeControl;
   board: Board;
   turn: Player;
   localPlayer: Player;
@@ -49,11 +92,20 @@ interface GameState {
   clock: ClockState;
   botThinking: boolean;
   moveCount: number;
+  lastMoveIndex: number | null;
   online: OnlineState;
   /** bumped on every new game/reset so async bot replies from a stale game can be ignored */
   gameGeneration: number;
 
-  goToMenu: () => void;
+  goHome: () => void;
+  goToSettings: () => void;
+  goToCosmetics: () => void;
+  setSize: (size: BoardSize) => void;
+  setMode: (mode: GameMode) => void;
+  setDifficulty: (difficulty: Difficulty) => void;
+  setTimeControlIndex: (index: number) => void;
+  setBackground: (background: BackgroundTheme) => void;
+  playNow: () => void;
   startLocalGame: (size: BoardSize, timeControl: TimeControl) => void;
   startBotGame: (size: BoardSize, difficulty: Difficulty, timeControl: TimeControl) => void;
   openOnlineLobby: () => void;
@@ -88,29 +140,70 @@ function finishIfGameOver(
   return { winner: null, reason: null };
 }
 
+const DEFAULT_TIME_CONTROL_INDEX = 2;
+
 export const useGameStore = create<GameState>((set, get) => ({
-  screen: 'menu',
-  size: 4,
-  mode: 'bot',
-  difficulty: 'medium',
-  timeControl: TIME_PRESETS[2].timeControl,
-  board: createBoard(4),
+  screen: 'home',
+  size: persisted.size ?? 4,
+  mode: persisted.mode ?? 'bot',
+  difficulty: persisted.difficulty ?? 50,
+  timeControlIndex: persisted.timeControlIndex ?? DEFAULT_TIME_CONTROL_INDEX,
+  background: persisted.background ?? 'nebula',
+  activeTimeControl: timeControlFromIndex(persisted.timeControlIndex ?? DEFAULT_TIME_CONTROL_INDEX),
+  board: createBoard(persisted.size ?? 4),
   turn: 'X',
   localPlayer: 'X',
   winner: null,
   gameOverReason: null,
-  clock: createClockState(TIME_PRESETS[2].timeControl),
+  clock: createClockState(timeControlFromIndex(persisted.timeControlIndex ?? DEFAULT_TIME_CONTROL_INDEX)),
   botThinking: false,
   moveCount: 0,
+  lastMoveIndex: null,
   gameGeneration: 0,
   online: { session: null, status: 'idle', roomCode: null, isHost: false },
 
-  goToMenu: () => {
+  goHome: () => {
     get().online.session?.destroy();
     set({
-      screen: 'menu',
+      screen: 'home',
       online: { session: null, status: 'idle', roomCode: null, isHost: false },
     });
+  },
+
+  goToSettings: () => set({ screen: 'settings' }),
+  goToCosmetics: () => set({ screen: 'cosmetics' }),
+
+  setSize: (size) => {
+    saveSettings({ size });
+    set({ size });
+  },
+  setMode: (mode) => {
+    saveSettings({ mode });
+    set({ mode });
+  },
+  setDifficulty: (difficulty) => {
+    saveSettings({ difficulty });
+    set({ difficulty });
+  },
+  setTimeControlIndex: (timeControlIndex) => {
+    saveSettings({ timeControlIndex });
+    set({ timeControlIndex });
+  },
+  setBackground: (background) => {
+    saveSettings({ background });
+    set({ background });
+  },
+
+  playNow: () => {
+    const state = get();
+    const timeControl = timeControlFromIndex(state.timeControlIndex);
+    if (state.mode === 'online') {
+      set({ screen: 'lobby' });
+    } else if (state.mode === 'bot') {
+      state.startBotGame(state.size, state.difficulty, timeControl);
+    } else {
+      state.startLocalGame(state.size, timeControl);
+    }
   },
 
   startLocalGame: (size, timeControl) => {
@@ -118,13 +211,14 @@ export const useGameStore = create<GameState>((set, get) => ({
       screen: 'game',
       mode: 'local',
       size,
-      timeControl,
+      activeTimeControl: timeControl,
       board: createBoard(size),
       turn: 'X',
       localPlayer: 'X',
       winner: null,
       gameOverReason: null,
       moveCount: 0,
+      lastMoveIndex: null,
       botThinking: false,
       clock: startClock(createClockState(timeControl), 'X', Date.now()),
       gameGeneration: s.gameGeneration + 1,
@@ -137,13 +231,14 @@ export const useGameStore = create<GameState>((set, get) => ({
       mode: 'bot',
       size,
       difficulty,
-      timeControl,
+      activeTimeControl: timeControl,
       board: createBoard(size),
       turn: 'X',
       localPlayer: 'X',
       winner: null,
       gameOverReason: null,
       moveCount: 0,
+      lastMoveIndex: null,
       botThinking: false,
       clock: startClock(createClockState(timeControl), 'X', Date.now()),
       gameGeneration: s.gameGeneration + 1,
@@ -163,13 +258,14 @@ export const useGameStore = create<GameState>((set, get) => ({
             screen: 'game',
             mode: 'online',
             size,
-            timeControl,
+            activeTimeControl: timeControl,
             board: createBoard(size),
             turn: 'X',
             localPlayer: hostPlayer,
             winner: null,
             gameOverReason: null,
             moveCount: 0,
+            lastMoveIndex: null,
             clock: startClock(createClockState(timeControl), 'X', Date.now()),
             gameGeneration: s.gameGeneration + 1,
           }));
@@ -204,7 +300,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     get().online.session?.send({ type: 'resign', player: get().localPlayer });
     get().online.session?.destroy();
     set({
-      screen: 'menu',
+      screen: 'home',
       online: { session: null, status: 'idle', roomCode: null, isHost: false },
     });
   },
@@ -226,7 +322,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     const next = otherPlayer(player);
     const { winner, reason } = finishIfGameOver(board, state.size);
     const now = Date.now();
-    const clock = winner || reason ? tickClock(state.clock, now) : switchClock(state.clock, player, next, state.timeControl, now);
+    const clock = winner || reason
+      ? tickClock(state.clock, now)
+      : switchClock(state.clock, player, next, state.activeTimeControl, now);
 
     set({
       board,
@@ -235,6 +333,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       gameOverReason: reason,
       clock,
       moveCount: state.moveCount + 1,
+      lastMoveIndex: index,
     });
 
     if (state.mode === 'online') {
@@ -244,8 +343,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (!winner && !reason && state.mode === 'bot' && next !== state.localPlayer) {
       const generation = state.gameGeneration;
       set({ botThinking: true });
-      requestBotMove(board, state.size, next, state.difficulty)
-        .then((botIndex) => {
+      const delay = new Promise<void>((resolve) => setTimeout(resolve, botMoveDelayMs(state.difficulty)));
+      Promise.all([requestBotMove(board, state.size, next, state.difficulty), delay])
+        .then(([botIndex]) => {
           const fresh = get();
           if (fresh.gameGeneration !== generation || botIndex === null) {
             set({ botThinking: false });
@@ -277,8 +377,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       winner: null,
       gameOverReason: null,
       moveCount: 0,
+      lastMoveIndex: null,
       botThinking: false,
-      clock: startClock(createClockState(state.timeControl), 'X', Date.now()),
+      clock: startClock(createClockState(state.activeTimeControl), 'X', Date.now()),
       gameGeneration: s.gameGeneration + 1,
     }));
   },
@@ -316,13 +417,14 @@ export const useGameStore = create<GameState>((set, get) => ({
       set({
         mode: 'online',
         size: message.size,
-        timeControl: message.timeControl,
+        activeTimeControl: message.timeControl,
         localPlayer: otherPlayer(message.hostPlayer),
         board: createBoard(message.size),
         turn: 'X',
         winner: null,
         gameOverReason: null,
         moveCount: 0,
+        lastMoveIndex: null,
         screen: 'game',
         clock: startClock(createClockState(message.timeControl), 'X', Date.now()),
         gameGeneration: state.gameGeneration + 1,
@@ -334,8 +436,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       const now = Date.now();
       const clock = winner || reason
         ? tickClock(state.clock, now)
-        : switchClock(state.clock, message.player, next, state.timeControl, now);
-      set({ board, turn: next, winner, gameOverReason: reason, clock, moveCount: state.moveCount + 1 });
+        : switchClock(state.clock, message.player, next, state.activeTimeControl, now);
+      set({ board, turn: next, winner, gameOverReason: reason, clock, moveCount: state.moveCount + 1, lastMoveIndex: message.index });
     } else if (message.type === 'resign') {
       set({ gameOverReason: 'resign', winner: { winner: otherPlayer(message.player), line: [] } });
     } else if (message.type === 'rematch-offer') {

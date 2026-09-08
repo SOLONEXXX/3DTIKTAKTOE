@@ -86,18 +86,44 @@ function minimax(
 interface DifficultyConfig {
   depth: number;
   candidateLimit: number;
+  winChance: number;
   blockChance: number;
   randomness: number;
 }
 
+function skillOf(difficulty: Difficulty): number {
+  return Math.min(100, Math.max(1, difficulty)) / 100;
+}
+
 function configFor(difficulty: Difficulty, size: BoardSize): DifficultyConfig {
-  if (difficulty === 'easy') {
-    return { depth: 1, candidateLimit: size === 3 ? 27 : 16, blockChance: 0.5, randomness: 0.6 };
-  }
-  if (difficulty === 'medium') {
-    return { depth: size === 3 ? 3 : 2, candidateLimit: size === 3 ? 14 : 10, blockChance: 1, randomness: 0.15 };
-  }
-  return { depth: size === 3 ? 5 : 3, candidateLimit: size === 3 ? 16 : 10, blockChance: 1, randomness: 0 };
+  const skill = skillOf(difficulty);
+  const maxDepth = size === 3 ? 5 : 3;
+  const minCandidates = size === 3 ? 6 : 5;
+  const maxCandidates = size === 3 ? 18 : 12;
+
+  return {
+    depth: Math.max(1, Math.round(1 + skill * (maxDepth - 1))),
+    candidateLimit: Math.max(minCandidates, Math.round(minCandidates + skill * (maxCandidates - minCandidates))),
+    // Weak bots often fail to notice a free win or an opponent's threat — that's what makes them feel beatable.
+    winChance: 0.12 + skill * 0.88,
+    blockChance: 0.05 + skill * 0.95,
+    // Strong bots always trust the search; weak ones frequently just play something plausible-looking.
+    randomness: (1 - skill) * 0.75,
+  };
+}
+
+/**
+ * How long the bot should "think" before placing, in ms. Instant placement reads as
+ * robotic and unfun — but a strong bot should still feel sharp and decisive, while a
+ * weak one visibly hesitates (and still blunders anyway).
+ */
+export function botMoveDelayMs(difficulty: Difficulty): number {
+  const skill = skillOf(difficulty);
+  const maxDelay = 2200;
+  const minDelay = 350;
+  const base = maxDelay - skill * (maxDelay - minDelay);
+  const jitter = (Math.random() - 0.5) * 300;
+  return Math.max(200, Math.round(base + jitter));
 }
 
 function findImmediateWin(board: Board, size: BoardSize, player: Player): number | null {
@@ -125,7 +151,7 @@ export function getBotMove(board: Board, size: BoardSize, player: Player, diffic
   const opponent = otherPlayer(player);
 
   const winningMove = findImmediateWin(board, size, player);
-  if (winningMove !== null) return winningMove;
+  if (winningMove !== null && Math.random() < config.winChance) return winningMove;
 
   const threats = findThreats(board, size, opponent);
   if (threats.length > 0 && Math.random() < config.blockChance) {
@@ -133,7 +159,7 @@ export function getBotMove(board: Board, size: BoardSize, player: Player, diffic
     // Multiple simultaneous threats: search will pick the best available damage control.
   }
 
-  if (difficulty === 'easy' && Math.random() < config.randomness) {
+  if (Math.random() < config.randomness) {
     return empties[Math.floor(Math.random() * empties.length)];
   }
 

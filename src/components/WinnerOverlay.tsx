@@ -13,11 +13,11 @@ interface WinnerOverlayProps {
 function reasonLabel(reason: GameOverReason): string {
   switch (reason) {
     case 'timeout':
-      return 'on time';
+      return 'nach Zeitablauf';
     case 'resign':
-      return 'by resignation';
+      return 'durch Aufgabe';
     case 'opponent-left':
-      return 'opponent disconnected';
+      return 'Gegner hat die Verbindung getrennt';
     default:
       return '';
   }
@@ -27,23 +27,31 @@ export function WinnerOverlay({ winner, reason, mode, localPlayer, onRematch, on
   if (!reason) return null;
 
   let headline: string;
+  let variant: 'win' | 'lose' | 'draw' = 'draw';
   if (reason === 'draw') {
-    headline = "It's a draw!";
+    headline = 'Unentschieden!';
   } else if (winner) {
     const isLocalWinner = (mode === 'bot' || mode === 'online') && winner === localPlayer;
     const isLocalLoser = (mode === 'bot' || mode === 'online') && winner !== localPlayer;
-    if (isLocalWinner) headline = 'You win!';
-    else if (isLocalLoser) headline = 'You lose';
-    else headline = `Player ${winner} wins!`;
+    if (isLocalWinner) {
+      headline = 'Du gewinnst! 🎉';
+      variant = 'win';
+    } else if (isLocalLoser) {
+      headline = 'Verloren';
+      variant = 'lose';
+    } else {
+      headline = `Spieler ${winner} gewinnt!`;
+      variant = 'win';
+    }
   } else {
-    headline = 'Game over';
+    headline = 'Spiel beendet';
   }
 
   const detail = reasonLabel(reason);
 
   return (
     <div className="overlay">
-      <div className="overlay-card">
+      <div className={`overlay-card overlay-${variant}`}>
         <h2>{headline}</h2>
         {detail && <p className="overlay-detail">{detail}</p>}
         <div className="overlay-actions">
@@ -53,7 +61,7 @@ export function WinnerOverlay({ winner, reason, mode, localPlayer, onRematch, on
             </button>
           )}
           <button className="primary-btn secondary" onClick={onMenu}>
-            Main Menu
+            Hauptmenü
           </button>
         </div>
       </div>

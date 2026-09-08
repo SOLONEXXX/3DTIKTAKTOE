@@ -1,7 +1,7 @@
 import { useMemo, useState, type RefObject } from 'react';
 import * as THREE from 'three';
 import type { Cell as CellValue } from '../game/types';
-import { Marker } from './Marker';
+import { MarkerBlock } from './MarkerBlock';
 
 interface CubeCellProps {
   position: [number, number, number];
@@ -14,20 +14,25 @@ interface CubeCellProps {
   onTap: (index: number) => void;
 }
 
-const boxGeometry = new THREE.BoxGeometry(0.78, 0.78, 0.78);
+const CELL_SIZE = 0.82;
+const boxGeometry = new THREE.BoxGeometry(CELL_SIZE, CELL_SIZE, CELL_SIZE);
 const edgesGeometry = new THREE.EdgesGeometry(boxGeometry);
+const outerEdgesGeometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(CELL_SIZE * 1.06, CELL_SIZE * 1.06, CELL_SIZE * 1.06));
 
 export function CubeCell({ position, value, index, dimmed, interactive, isWinning, dragRef, onTap }: CubeCellProps) {
   const [hovered, setHovered] = useState(false);
-  const emptyOpacity = dimmed ? 0.03 : hovered && interactive ? 0.6 : 0.28;
+  const isHot = hovered && interactive;
+  const edgeOpacity = dimmed ? 0.035 : isHot ? 0.95 : 0.42;
+  const glowOpacity = dimmed ? 0 : isHot ? 0.3 : 0;
+  const fillOpacity = dimmed ? 0.008 : isHot ? 0.1 : 0.035;
   const markerOpacity = dimmed ? 0.15 : 1;
 
-  const lineColor = useMemo(() => new THREE.Color(hovered && interactive ? '#9fe3ff' : '#8892b0'), [hovered, interactive]);
+  const edgeColor = useMemo(() => new THREE.Color(isHot ? '#a9e8ff' : '#7f94c9'), [isHot]);
 
   if (value) {
     return (
       <group position={position}>
-        <Marker player={value} highlighted={isWinning} opacity={markerOpacity} />
+        <MarkerBlock player={value} highlighted={isWinning} opacity={markerOpacity} />
       </group>
     );
   }
@@ -52,9 +57,17 @@ export function CubeCell({ position, value, index, dimmed, interactive, isWinnin
         <boxGeometry args={[1.05, 1.05, 1.05]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
+      <mesh geometry={boxGeometry}>
+        <meshBasicMaterial color="#8fb0ff" transparent opacity={fillOpacity} depthWrite={false} />
+      </mesh>
       <lineSegments geometry={edgesGeometry}>
-        <lineBasicMaterial color={lineColor} transparent opacity={emptyOpacity} />
+        <lineBasicMaterial color={edgeColor} transparent opacity={edgeOpacity} />
       </lineSegments>
+      {glowOpacity > 0 && (
+        <lineSegments geometry={outerEdgesGeometry}>
+          <lineBasicMaterial color="#c9f0ff" transparent opacity={glowOpacity} />
+        </lineSegments>
+      )}
     </group>
   );
 }

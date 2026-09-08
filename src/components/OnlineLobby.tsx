@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useGameStore } from '../game/store';
+import { timeControlFromIndex, useGameStore } from '../game/store';
 
 interface OnlineLobbyProps {
   onBack: () => void;
@@ -7,7 +7,7 @@ interface OnlineLobbyProps {
 
 export function OnlineLobby({ onBack }: OnlineLobbyProps) {
   const size = useGameStore((s) => s.size);
-  const timeControl = useGameStore((s) => s.timeControl);
+  const timeControl = timeControlFromIndex(useGameStore((s) => s.timeControlIndex));
   const online = useGameStore((s) => s.online);
   const startOnlineHost = useGameStore((s) => s.startOnlineHost);
   const startOnlineJoin = useGameStore((s) => s.startOnlineJoin);
@@ -22,7 +22,7 @@ export function OnlineLobby({ onBack }: OnlineLobbyProps) {
     try {
       await startOnlineHost(size, timeControl);
     } catch {
-      setError('Could not create a room. Check your connection and try again.');
+      setError('Raum konnte nicht erstellt werden. Prüfe deine Verbindung und versuch es erneut.');
     }
   };
 
@@ -33,30 +33,30 @@ export function OnlineLobby({ onBack }: OnlineLobbyProps) {
     try {
       await startOnlineJoin(joinCode.trim());
     } catch {
-      setError('Could not join that room. Double-check the code.');
+      setError('Beitritt fehlgeschlagen. Prüfe den Code.');
     }
   };
 
   return (
     <div className="screen lobby-screen">
-      <h1 className="title">Play Online</h1>
+      <h1 className="title">Online spielen</h1>
 
       {mode === 'choose' && (
         <div className="lobby-choices">
           <button className="primary-btn" onClick={handleHost}>
-            Host a Game
+            Spiel erstellen
           </button>
-          <div className="lobby-divider">or</div>
+          <div className="lobby-divider">oder</div>
           <input
             className="code-input"
-            placeholder="Enter room code"
+            placeholder="Raumcode eingeben"
             value={joinCode}
             maxLength={6}
             autoCapitalize="characters"
             onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
           />
           <button className="primary-btn secondary" disabled={joinCode.trim().length < 3} onClick={handleJoin}>
-            Join Game
+            Beitreten
           </button>
         </div>
       )}
@@ -65,20 +65,20 @@ export function OnlineLobby({ onBack }: OnlineLobbyProps) {
         <div className="lobby-status">
           {online.roomCode ? (
             <>
-              <p>Share this code with your opponent:</p>
+              <p>Teile diesen Code mit deinem Gegner:</p>
               <div className="room-code">{online.roomCode}</div>
-              <p className="lobby-hint">Waiting for them to join…</p>
+              <p className="lobby-hint">Warte auf Beitritt…</p>
               <div className="spinner" />
             </>
           ) : (
-            <p className="lobby-hint">Creating room…</p>
+            <p className="lobby-hint">Raum wird erstellt…</p>
           )}
         </div>
       )}
 
       {mode === 'join' && (
         <div className="lobby-status">
-          <p className="lobby-hint">Connecting to {joinCode}…</p>
+          <p className="lobby-hint">Verbinde mit {joinCode}…</p>
           <div className="spinner" />
         </div>
       )}
@@ -86,7 +86,7 @@ export function OnlineLobby({ onBack }: OnlineLobbyProps) {
       {error && <p className="lobby-error">{error}</p>}
 
       <button className="link-btn" onClick={onBack}>
-        Back
+        Zurück
       </button>
     </div>
   );

@@ -14,7 +14,10 @@ export interface WinResult {
 
 export type GameMode = 'bot' | 'local' | 'online';
 
-export type Difficulty = 'easy' | 'medium' | 'hard';
+/** Bot strength as a percentage: 1 = near-random, 100 = unbeatable. */
+export type Difficulty = number;
+
+export type BackgroundTheme = 'nebula' | 'ocean' | 'sunset' | 'starfield' | 'void';
 
 export interface TimeControl {
   /** starting time per player, in milliseconds */

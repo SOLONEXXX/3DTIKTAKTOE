@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useGameStore } from '../game/store';
 import { Scene } from '../three/Scene';
 import { ClockDisplay } from './ClockDisplay';
 import { WinnerOverlay } from './WinnerOverlay';
+import { BackIcon } from './icons';
 import type { Player } from '../game/types';
 
 const LOW_TIME_MS = 20_000;
@@ -12,9 +13,9 @@ interface GameScreenProps {
 }
 
 function playerLabel(player: Player, mode: string, localPlayer: Player): string {
-  if (mode === 'local') return `Player ${player}`;
-  if (mode === 'bot') return player === localPlayer ? 'You' : 'Bot';
-  if (mode === 'online') return player === localPlayer ? 'You' : 'Opponent';
+  if (mode === 'local') return `Spieler ${player}`;
+  if (mode === 'bot') return player === localPlayer ? 'Du' : 'Bot';
+  if (mode === 'online') return player === localPlayer ? 'Du' : 'Gegner';
   return player;
 }
 
@@ -29,12 +30,22 @@ export function GameScreen({ onExit }: GameScreenProps) {
   const clock = useGameStore((s) => s.clock);
   const botThinking = useGameStore((s) => s.botThinking);
   const online = useGameStore((s) => s.online);
+  const background = useGameStore((s) => s.background);
   const placeMark = useGameStore((s) => s.placeMark);
   const resign = useGameStore((s) => s.resign);
   const requestRematch = useGameStore((s) => s.requestRematch);
-  const goToMenu = useGameStore((s) => s.goToMenu);
+  const goHome = useGameStore((s) => s.goHome);
 
   const [focusedLayer, setFocusedLayer] = useState<number | null>(null);
+  const [showOutcomeFx, setShowOutcomeFx] = useState(false);
+
+  useEffect(() => {
+    if (gameOverReason) {
+      setShowOutcomeFx(true);
+      const timeout = window.setTimeout(() => setShowOutcomeFx(false), 1400);
+      return () => window.clearTimeout(timeout);
+    }
+  }, [gameOverReason]);
 
   const myTurn = useMemo(() => {
     if (winner || gameOverReason) return false;
@@ -45,30 +56,46 @@ export function GameScreen({ onExit }: GameScreenProps) {
   }, [winner, gameOverReason, mode, turn, localPlayer, botThinking, online.status]);
 
   const statusText = useMemo(() => {
-    if (gameOverReason) return 'Game over';
+    if (gameOverReason) return 'Spiel beendet';
     if (mode === 'online' && online.status !== 'connected') {
-      if (online.status === 'disconnected') return 'Opponent disconnected';
-      return 'Connecting…';
+      if (online.status === 'disconnected') return 'Gegner getrennt';
+      return 'Verbinde…';
     }
-    if (mode === 'bot' && botThinking) return 'Bot is thinking…';
-    if (mode === 'local') return `${playerLabel(turn, mode, localPlayer)}'s turn`;
-    return myTurn ? 'Your turn' : `${playerLabel(turn, mode, localPlayer)}'s turn`;
+    if (mode === 'bot' && botThinking) return 'Bot überlegt…';
+    if (mode === 'local') return `${playerLabel(turn, mode, localPlayer)} ist dran`;
+    return myTurn ? 'Du bist dran' : `${playerLabel(turn, mode, localPlayer)} ist dran`;
   }, [gameOverReason, mode, online, botThinking, turn, localPlayer, myTurn]);
 
   const topPlayer: Player = mode === 'local' ? 'O' : otherOf(localPlayer);
   const bottomPlayer: Player = mode === 'local' ? 'X' : localPlayer;
 
+  const outcomeClass = useMemo(() => {
+    if (!gameOverReason || !showOutcomeFx) return '';
+    if (gameOverReason === 'draw') return 'outcome-draw';
+    if (!winner) return '';
+    if (mode === 'local') return 'outcome-win';
+    return winner.winner === localPlayer ? 'outcome-win' : 'outcome-lose';
+  }, [gameOverReason, showOutcomeFx, winner, mode, localPlayer]);
+
   return (
-    <div className="screen game-screen">
+    <div className={`screen game-screen ${outcomeClass}`}>
+      {outcomeClass === 'outcome-win' && (
+        <div className="confetti-layer">
+          {Array.from({ length: 24 }, (_, i) => (
+            <span key={i} className="confetti-piece" style={{ '--i': i } as CSSProperties} />
+          ))}
+        </div>
+      )}
+
       <div className="game-topbar">
-        <button className="icon-btn" onClick={onExit} aria-label="Back to menu">
-          ←
+        <button className="icon-btn" onClick={onExit} aria-label="Zurück zum Menü">
+          <BackIcon className="icon-btn-svg" />
         </button>
         <span className="status-text">{statusText}</span>
         {mode === 'online' && online.roomCode && <span className="room-code-badge">{online.roomCode}</span>}
         {mode !== 'online' && !gameOverReason && (
           <button className="icon-btn text-btn" onClick={resign}>
-            Resign
+            Aufgeben
           </button>
         )}
       </div>
@@ -81,7 +108,7 @@ export function GameScreen({ onExit }: GameScreenProps) {
         low={clock.remainingMs[topPlayer] <= LOW_TIME_MS}
       />
 
-      <div className="scene-wrapper">
+      <div className={`scene-wrapper bg-${background}`}>
         <Scene
           board={board}
           size={size}
@@ -102,7 +129,7 @@ export function GameScreen({ onExit }: GameScreenProps) {
 
       <div className="layer-selector">
         <button className={`layer-btn ${focusedLayer === null ? 'selected' : ''}`} onClick={() => setFocusedLayer(null)}>
-          All
+          Alle
         </button>
         {Array.from({ length: size }, (_, i) => (
           <button
@@ -121,7 +148,7 @@ export function GameScreen({ onExit }: GameScreenProps) {
         mode={mode}
         localPlayer={localPlayer}
         onRematch={requestRematch}
-        onMenu={goToMenu}
+        onMenu={goHome}
       />
     </div>
   );

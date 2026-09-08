@@ -4,6 +4,7 @@ import { toCoords } from '../game/board';
 import type { Board, BoardSize } from '../game/types';
 import { cellPosition } from './layout';
 import { CubeCell } from './CubeCell';
+import { VictoryPulse } from './VictoryPulse';
 
 interface CubeGridProps {
   board: Board;
@@ -37,6 +38,13 @@ export function CubeGrid({ board, size, winLine, focusedLayer, interactive, drag
     ];
   }, [winLine, size]);
 
+  const winCellPositions = useMemo(() => {
+    return winLine.map((idx) => {
+      const [x, y, z] = toCoords(size, idx);
+      return cellPosition(size, x, y, z);
+    });
+  }, [winLine, size]);
+
   return (
     <group>
       {cells.map(({ index, position, y }) => (
@@ -53,6 +61,7 @@ export function CubeGrid({ board, size, winLine, focusedLayer, interactive, drag
         />
       ))}
       {winLinePoints && <Line points={winLinePoints} color="#ffd35c" lineWidth={6} transparent opacity={0.9} />}
+      {winCellPositions.length > 0 && <VictoryPulse positions={winCellPositions} />}
     </group>
   );
 }
