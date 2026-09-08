@@ -13,6 +13,7 @@ import {
   type ClockState,
 } from './timer';
 import { MultiplayerSession, type ConnectionStatus, type NetMessage } from './multiplayer';
+import { haptics } from './haptics';
 import type {
   BackgroundTheme,
   Board,
@@ -68,6 +69,24 @@ interface PersistedSettings {
   campaignLevel4: number;
   campaignBoardSize: BoardSize;
   onlineMyColor: string;
+  cheatUnlockAll: boolean;
+  accessibilityGlyphs: boolean;
+  hapticsEnabled: boolean;
+  stats: Stats;
+}
+
+export interface Stats {
+  wins: number;
+  losses: number;
+  draws: number;
+}
+
+interface HistoryEntry {
+  board: Board;
+  turn: Player;
+  lastMoveIndex: number | null;
+  moveCount: number;
+  clock: ClockState;
 }
 
 function loadSettings(): Partial<PersistedSettings> {
@@ -124,6 +143,12 @@ interface GameState {
   campaignLevelInPlay: number;
   /** Single personal color for online play, independent of the X/O paired theme used elsewhere. */
   onlineMyColor: string;
+  /** "Creative Coder" cheat code (901399) — bypasses all cosmetic level-gating. */
+  cheatUnlockAll: boolean;
+  /** Accessibility: overlay a camera-facing X/O glyph on markers, independent of color. */
+  accessibilityGlyphs: boolean;
+  hapticsEnabled: boolean;
+  stats: Stats;
   activeTimeControl: TimeControl;
   board: Board;
   blockedCells: Set<number>;
@@ -135,6 +160,8 @@ interface GameState {
   botThinking: boolean;
   moveCount: number;
   lastMoveIndex: number | null;
+  /** Undo stack for local pass-and-play games only. */
+  history: HistoryEntry[];
   online: OnlineState;
   /** bumped on every new game/reset so async bot replies from a stale game can be ignored */
   gameGeneration: number;
@@ -158,6 +185,11 @@ interface GameState {
   setPlayerName: (name: string) => void;
   setCampaignBoardSize: (size: BoardSize) => void;
   setOnlineMyColor: (color: string) => void;
+  redeemCode: (code: string) => boolean;
+  setAccessibilityGlyphs: (enabled: boolean) => void;
+  setHapticsEnabled: (enabled: boolean) => void;
+  resetStats: () => void;
+  undo: () => void;
   playNow: () => void;
   startLocalGame: (size: BoardSize, timeControl: TimeControl) => void;
   startBotGame: (size: BoardSize, difficulty: Difficulty, timeControl: TimeControl) => void;
@@ -173,6 +205,7 @@ interface GameState {
   requestRematch: () => void;
   tick: () => void;
   __handleNetMessage: (message: NetMessage) => void;
+  __recordStat: (result: 'win' | 'loss' | 'draw') => void;
 }
 
 function canPlayerAct(
@@ -219,6 +252,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   campaignBoardSize: persisted.campaignBoardSize ?? 4,
   campaignLevelInPlay: 1,
   onlineMyColor: persisted.onlineMyColor ?? '#ff4757',
+  cheatUnlockAll: persisted.cheatUnlockAll ?? false,
+  accessibilityGlyphs: persisted.accessibilityGlyphs ?? false,
+  hapticsEnabled: persisted.hapticsEnabled ?? true,
+  stats: persisted.stats ?? { wins: 0, losses: 0, draws: 0 },
   activeTimeControl: timeControlFromIndex(persisted.timeControlIndex ?? DEFAULT_TIME_CONTROL_INDEX),
   board: createBoard(persisted.size ?? 4),
   blockedCells: EMPTY_BLOCKED as Set<number>,
@@ -230,6 +267,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   botThinking: false,
   moveCount: 0,
   lastMoveIndex: null,
+  history: [],
   gameGeneration: 0,
   online: { session: null, status: 'idle', roomCode: null, isHost: false, opponentColor: null, opponentShape: null },
 
@@ -323,6 +361,46 @@ export const useGameStore = create<GameState>((set, get) => ({
     saveSettings({ onlineMyColor });
     set({ onlineMyColor });
   },
+  redeemCode: (code) => {
+    if (code.trim() === '901399') {
+      saveSettings({ cheatUnlockAll: true });
+      set({ cheatUnlockAll: true });
+      return true;
+    }
+    return false;
+  },
+  setAccessibilityGlyphs: (accessibilityGlyphs) => {
+    saveSettings({ accessibilityGlyphs });
+    set({ accessibilityGlyphs });
+  },
+  setHapticsEnabled: (hapticsEnabled) => {
+    saveSettings({ hapticsEnabled });
+    haptics.setEnabled(hapticsEnabled);
+    set({ hapticsEnabled });
+  },
+  resetStats: () => {
+    const stats: Stats = { wins: 0, losses: 0, draws: 0 };
+    saveSettings({ stats });
+    set({ stats });
+  },
+  undo: () => {
+    const state = get();
+    if (state.mode !== 'local') return;
+    if (state.gameOverReason) return;
+    const prev = state.history[state.history.length - 1];
+    if (!prev) return;
+    audio.playClick();
+    set({
+      board: prev.board,
+      turn: prev.turn,
+      lastMoveIndex: prev.lastMoveIndex,
+      moveCount: prev.moveCount,
+      clock: prev.clock,
+      winner: null,
+      gameOverReason: null,
+      history: state.history.slice(0, -1),
+    });
+  },
 
   playNow: () => {
     const state = get();
@@ -353,6 +431,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       moveCount: 0,
       lastMoveIndex: null,
       botThinking: false,
+      history: [],
       clock: startClock(createClockState(timeControl), 'X', Date.now()),
       gameGeneration: s.gameGeneration + 1,
     }));
@@ -375,6 +454,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       moveCount: 0,
       lastMoveIndex: null,
       botThinking: false,
+      history: [],
       clock: startClock(createClockState(timeControl), 'X', Date.now()),
       gameGeneration: s.gameGeneration + 1,
     }));
@@ -404,6 +484,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       moveCount: 0,
       lastMoveIndex: null,
       botThinking: false,
+      history: [],
       clock: startClock(createClockState(UNLIMITED_TIME_CONTROL), 'X', Date.now()),
       gameGeneration: s.gameGeneration + 1,
     }));
@@ -437,6 +518,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             gameOverReason: null,
             moveCount: 0,
             lastMoveIndex: null,
+            history: [],
             clock: startClock(createClockState(timeControl), 'X', Date.now()),
             gameGeneration: s.gameGeneration + 1,
           }));
@@ -499,6 +581,11 @@ export const useGameStore = create<GameState>((set, get) => ({
       : switchClock(state.clock, player, next, state.activeTimeControl, now);
 
     audio.playPlace(player);
+    if (state.mode === 'local' || player === state.localPlayer) haptics.place();
+
+    const history = state.mode === 'local'
+      ? [...state.history, { board: state.board, turn: state.turn, lastMoveIndex: state.lastMoveIndex, moveCount: state.moveCount, clock: state.clock }]
+      : state.history;
 
     set({
       board,
@@ -508,6 +595,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       clock,
       moveCount: state.moveCount + 1,
       lastMoveIndex: index,
+      history,
     });
 
     if (state.mode === 'online') {
@@ -515,11 +603,19 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
 
     if (winner || reason) {
-      if (reason === 'draw') audio.playDraw();
-      else if (winner) {
+      if (reason === 'draw') {
+        audio.playDraw();
+        if (state.mode === 'bot') get().__recordStat('draw');
+      } else if (winner) {
         const localWins = state.mode === 'local' || winner.winner === state.localPlayer;
-        if (localWins) audio.playWin();
-        else audio.playLose();
+        if (localWins) {
+          audio.playWin();
+          haptics.win();
+        } else {
+          audio.playLose();
+          haptics.lose();
+        }
+        if (state.mode === 'bot') get().__recordStat(winner.winner === state.localPlayer ? 'win' : 'loss');
       }
       if (state.mode === 'campaign' && winner && winner.winner === state.localPlayer) {
         if (state.size === 3) {
@@ -561,10 +657,12 @@ export const useGameStore = create<GameState>((set, get) => ({
     const state = get();
     if (state.winner || state.gameOverReason) return;
     audio.playLose();
+    haptics.lose();
     set({ gameOverReason: 'resign', winner: { winner: otherPlayer(state.localPlayer), line: [] }, clock: tickClock(state.clock, Date.now()) });
     if (state.mode === 'online') {
       state.online.session?.send({ type: 'resign', player: state.localPlayer });
     }
+    if (state.mode === 'bot') get().__recordStat('loss');
   },
 
   rematch: () => {
@@ -582,6 +680,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       moveCount: 0,
       lastMoveIndex: null,
       botThinking: false,
+      history: [],
       clock: startClock(createClockState(state.activeTimeControl), 'X', Date.now()),
       gameGeneration: s.gameGeneration + 1,
     }));
@@ -603,11 +702,15 @@ export const useGameStore = create<GameState>((set, get) => ({
     const clock = tickClock(state.clock, Date.now());
     const timedOutPlayer = hasTimedOut(clock);
     if (timedOutPlayer) {
+      const localLost = timedOutPlayer === state.localPlayer;
+      if (localLost) haptics.lose();
+      else haptics.win();
       set({
         clock,
         gameOverReason: 'timeout',
         winner: { winner: otherPlayer(timedOutPlayer), line: [] },
       });
+      if (state.mode === 'bot') get().__recordStat(localLost ? 'loss' : 'win');
       return;
     }
     set({ clock });
@@ -630,6 +733,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         gameOverReason: null,
         moveCount: 0,
         lastMoveIndex: null,
+        history: [],
         screen: 'game',
         clock: startClock(createClockState(message.timeControl), 'X', Date.now()),
         gameGeneration: state.gameGeneration + 1,
@@ -662,6 +766,16 @@ export const useGameStore = create<GameState>((set, get) => ({
       get().rematch();
     }
   },
+
+  __recordStat: (result) => {
+    const state = get();
+    const stats: Stats = { ...state.stats };
+    if (result === 'win') stats.wins += 1;
+    else if (result === 'loss') stats.losses += 1;
+    else stats.draws += 1;
+    saveSettings({ stats });
+    set({ stats });
+  },
 }));
 
 // Sync the audio module with whatever was persisted, so the very first sound played
@@ -672,4 +786,5 @@ export const useGameStore = create<GameState>((set, get) => ({
   audio.setSfxVolume(initial.sfxVolume);
   audio.setMusicEnabled(initial.musicEnabled);
   audio.setSfxEnabled(initial.sfxEnabled);
+  haptics.setEnabled(initial.hapticsEnabled);
 }

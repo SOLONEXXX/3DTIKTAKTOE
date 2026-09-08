@@ -1,4 +1,4 @@
-import { type CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { useGameStore } from '../game/store';
 import { audio } from '../game/audio';
 import { BackIcon, SoundIcon } from './icons';
@@ -9,13 +9,32 @@ export function AppSettingsScreen() {
   const sfxVolume = useGameStore((s) => s.sfxVolume);
   const musicEnabled = useGameStore((s) => s.musicEnabled);
   const sfxEnabled = useGameStore((s) => s.sfxEnabled);
+  const hapticsEnabled = useGameStore((s) => s.hapticsEnabled);
+  const accessibilityGlyphs = useGameStore((s) => s.accessibilityGlyphs);
   const playerName = useGameStore((s) => s.playerName);
+  const stats = useGameStore((s) => s.stats);
+  const cheatUnlockAll = useGameStore((s) => s.cheatUnlockAll);
   const setMusicVolume = useGameStore((s) => s.setMusicVolume);
   const setSfxVolume = useGameStore((s) => s.setSfxVolume);
   const setMusicEnabled = useGameStore((s) => s.setMusicEnabled);
   const setSfxEnabled = useGameStore((s) => s.setSfxEnabled);
+  const setHapticsEnabled = useGameStore((s) => s.setHapticsEnabled);
+  const setAccessibilityGlyphs = useGameStore((s) => s.setAccessibilityGlyphs);
   const setPlayerName = useGameStore((s) => s.setPlayerName);
+  const resetStats = useGameStore((s) => s.resetStats);
+  const redeemCode = useGameStore((s) => s.redeemCode);
   const goHome = useGameStore((s) => s.goHome);
+
+  const [codeInput, setCodeInput] = useState('');
+  const [codeFeedback, setCodeFeedback] = useState<'ok' | 'bad' | null>(null);
+
+  const submitCode = () => {
+    audio.playClick();
+    const ok = redeemCode(codeInput);
+    setCodeFeedback(ok ? 'ok' : 'bad');
+    if (ok) setCodeInput('');
+    window.setTimeout(() => setCodeFeedback(null), 2400);
+  };
 
   return (
     <div className="screen settings-screen">
@@ -83,6 +102,68 @@ export function AppSettingsScreen() {
               style={{ '--pct': `${Math.round(sfxVolume * 100)}%` } as CSSProperties}
             />
           </div>
+        </section>
+
+        <section className="menu-section">
+          <div className="volume-row-header">
+            <h2 className="no-margin">Vibration</h2>
+            <ToggleSwitch checked={hapticsEnabled} onChange={setHapticsEnabled} label="Vibration an/aus" />
+          </div>
+          <p className="field-hint">Kurzes haptisches Feedback bei Zügen, Sieg und Niederlage.</p>
+        </section>
+
+        <section className="menu-section">
+          <div className="volume-row-header">
+            <h2 className="no-margin">Barrierefreiheit</h2>
+            <ToggleSwitch checked={accessibilityGlyphs} onChange={setAccessibilityGlyphs} label="X/O-Symbole an/aus" />
+          </div>
+          <p className="field-hint">
+            Zeigt zusätzlich zur Farbe ein X- oder O-Symbol auf jedem Spielstein — hilfreich bei Farbenblindheit.
+          </p>
+        </section>
+
+        <section className="menu-section">
+          <h2>Statistik (vs. Bot)</h2>
+          <div className="stats-row">
+            <div className="stat-pill">
+              <span className="stat-pill-value">{stats.wins}</span>
+              <span className="stat-pill-label">Siege</span>
+            </div>
+            <div className="stat-pill">
+              <span className="stat-pill-value">{stats.losses}</span>
+              <span className="stat-pill-label">Niederlagen</span>
+            </div>
+            <div className="stat-pill">
+              <span className="stat-pill-value">{stats.draws}</span>
+              <span className="stat-pill-label">Unentschieden</span>
+            </div>
+          </div>
+          <button
+            className="link-btn"
+            onClick={() => { audio.playClick(); resetStats(); }}
+          >
+            Statistik zurücksetzen
+          </button>
+        </section>
+
+        <section className="menu-section">
+          <h2>Code einlösen</h2>
+          <div className="code-redeem-row">
+            <input
+              className="code-input"
+              value={codeInput}
+              maxLength={20}
+              placeholder="Code eingeben"
+              onChange={(e) => setCodeInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') submitCode(); }}
+            />
+            <button className="primary-btn secondary code-redeem-btn" onClick={submitCode} disabled={!codeInput.trim()}>
+              Einlösen
+            </button>
+          </div>
+          {codeFeedback === 'ok' && <p className="field-hint code-feedback-ok">Alles freigeschaltet! 🎉</p>}
+          {codeFeedback === 'bad' && <p className="field-hint code-feedback-bad">Ungültiger Code.</p>}
+          {cheatUnlockAll && <p className="field-hint code-feedback-ok">Creative Coder aktiv — alle Cosmetics freigeschaltet.</p>}
         </section>
       </div>
     </div>

@@ -17,6 +17,7 @@ interface CubeGridProps {
   oColor: string;
   xShape: MarkerShape;
   oShape: MarkerShape;
+  showGlyphs: boolean;
   /** Bumped on every new game/level — forces a clean remount so no cell keeps stale hover/animation state. */
   gameGeneration: number;
   dragRef: RefObject<boolean>;
@@ -34,6 +35,7 @@ export function CubeGrid({
   oColor,
   xShape,
   oShape,
+  showGlyphs,
   gameGeneration,
   dragRef,
   onTap,
@@ -82,6 +84,7 @@ export function CubeGrid({
           oColor={oColor}
           xShape={xShape}
           oShape={oShape}
+          showGlyphs={showGlyphs}
           dragRef={dragRef}
           onTap={onTap}
         />

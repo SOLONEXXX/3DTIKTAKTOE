@@ -46,10 +46,12 @@ export function CampaignScreen() {
             <span className="campaign-stat-label">Bot-Stärke</span>
             <span className="campaign-stat-value">{difficulty}%</span>
           </div>
-          <div className="campaign-stat">
-            <span className="campaign-stat-label">Gesperrte Felder</span>
-            <span className="campaign-stat-value">{blockedCount > 0 ? blockedCount : '–'}</span>
-          </div>
+          {blockedCount > 0 && (
+            <div className="campaign-stat">
+              <span className="campaign-stat-label">Gesperrte Felder</span>
+              <span className="campaign-stat-value">{blockedCount}</span>
+            </div>
+          )}
         </div>
 
         <section className="menu-section">

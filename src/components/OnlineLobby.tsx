@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { timeControlFromIndex, useGameStore } from '../game/store';
 import { audio } from '../game/audio';
+import { ShareIcon } from './icons';
 
 interface OnlineLobbyProps {
   onBack: () => void;
@@ -16,6 +17,7 @@ export function OnlineLobby({ onBack }: OnlineLobbyProps) {
   const [joinCode, setJoinCode] = useState('');
   const [mode, setMode] = useState<'choose' | 'host' | 'join'>('choose');
   const [error, setError] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const handleHost = async () => {
     audio.playClick();
@@ -28,15 +30,47 @@ export function OnlineLobby({ onBack }: OnlineLobbyProps) {
     }
   };
 
-  const handleJoin = async () => {
-    if (joinCode.trim().length < 3) return;
+  const handleJoin = async (code: string) => {
+    if (code.trim().length < 3) return;
     audio.playClick();
     setMode('join');
     setError(null);
     try {
-      await startOnlineJoin(joinCode.trim());
+      await startOnlineJoin(code.trim());
     } catch {
       setError('Beitritt fehlgeschlagen. Prüfe den Code.');
+    }
+  };
+
+  useEffect(() => {
+    // Consume a shared invite link (?join=CODE) exactly once and auto-join.
+    const code = new URLSearchParams(window.location.search).get('join');
+    if (code) {
+      window.history.replaceState(null, '', window.location.pathname);
+      setJoinCode(code.toUpperCase());
+      handleJoin(code);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const inviteLink = online.roomCode
+    ? `${window.location.origin}${window.location.pathname}?join=${online.roomCode}`
+    : '';
+
+  const shareInvite = async () => {
+    audio.playClick();
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: '3D Tic-Tac-Toe', text: `Spiel gegen mich! Code: ${online.roomCode}`, url: inviteLink });
+      } catch {
+        // user cancelled the native share sheet
+      }
+      return;
+    }
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(inviteLink);
+      setLinkCopied(true);
+      window.setTimeout(() => setLinkCopied(false), 1800);
     }
   };
 
@@ -58,7 +92,7 @@ export function OnlineLobby({ onBack }: OnlineLobbyProps) {
             autoCapitalize="characters"
             onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
           />
-          <button className="primary-btn secondary" disabled={joinCode.trim().length < 3} onClick={handleJoin}>
+          <button className="primary-btn secondary" disabled={joinCode.trim().length < 3} onClick={() => handleJoin(joinCode)}>
             Beitreten
           </button>
         </div>
@@ -70,6 +104,10 @@ export function OnlineLobby({ onBack }: OnlineLobbyProps) {
             <>
               <p>Teile diesen Code mit deinem Gegner:</p>
               <div className="room-code">{online.roomCode}</div>
+              <button className="primary-btn secondary" onClick={shareInvite}>
+                <ShareIcon className="icon-btn-svg inline-icon" />
+                {linkCopied ? 'Link kopiert!' : 'Einladungslink teilen'}
+              </button>
               <p className="lobby-hint">Warte auf Beitritt…</p>
               <div className="spinner" />
             </>

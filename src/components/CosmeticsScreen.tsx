@@ -1,7 +1,9 @@
+import { lazy, Suspense } from 'react';
 import { useGameStore } from '../game/store';
 import { audio } from '../game/audio';
-import { IdleCube } from '../three/IdleCube';
 import { BackIcon, LockIcon } from './icons';
+
+const IdleCube = lazy(() => import('../three/IdleCube').then((m) => ({ default: m.IdleCube })));
 import { COLOR_THEMES, SHAPES, SOLO_COLORS, isColorThemeUnlocked, isShapeUnlocked } from '../game/cosmetics';
 import type { BackgroundTheme } from '../game/types';
 
@@ -35,6 +37,7 @@ export function CosmeticsScreen() {
   const campaignLevel3 = useGameStore((s) => s.campaignLevel3);
   const campaignLevel4 = useGameStore((s) => s.campaignLevel4);
   const campaignLevel = Math.max(campaignLevel3, campaignLevel4);
+  const cheatUnlockAll = useGameStore((s) => s.cheatUnlockAll);
   const goHome = useGameStore((s) => s.goHome);
 
   return (
@@ -48,7 +51,9 @@ export function CosmeticsScreen() {
       </div>
 
       <div className={`cosmetics-preview bg-${background}`}>
-        <IdleCube colorTheme={markerColorTheme} shape={markerShape} />
+        <Suspense fallback={null}>
+          <IdleCube colorTheme={markerColorTheme} shape={markerShape} />
+        </Suspense>
       </div>
 
       <div className="settings-scroll">
@@ -72,7 +77,7 @@ export function CosmeticsScreen() {
           <h2>Farbschema</h2>
           <div className="theme-grid">
             {COLOR_THEMES.map((c) => {
-              const unlocked = isColorThemeUnlocked(c.id, campaignLevel);
+              const unlocked = cheatUnlockAll || isColorThemeUnlocked(c.id, campaignLevel);
               return (
                 <button
                   key={c.id}
@@ -113,7 +118,7 @@ export function CosmeticsScreen() {
           <h2>Form</h2>
           <div className="theme-grid">
             {SHAPES.map((s) => {
-              const unlocked = isShapeUnlocked(s.id, campaignLevel);
+              const unlocked = cheatUnlockAll || isShapeUnlocked(s.id, campaignLevel);
               return (
                 <button
                   key={s.id}

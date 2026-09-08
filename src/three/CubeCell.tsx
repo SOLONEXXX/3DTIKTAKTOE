@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type RefObject } from 'react';
 import * as THREE from 'three';
 import type { Cell as CellValue, MarkerShape } from '../game/types';
 import { MarkerBlock } from './MarkerBlock';
+import { MarkerGlyph } from './MarkerGlyph';
 
 interface CubeCellProps {
   position: [number, number, number];
@@ -15,6 +16,7 @@ interface CubeCellProps {
   oColor: string;
   xShape: MarkerShape;
   oShape: MarkerShape;
+  showGlyphs: boolean;
   dragRef: RefObject<boolean>;
   onTap: (index: number) => void;
 }
@@ -37,6 +39,7 @@ export function CubeCell({
   oColor,
   xShape,
   oShape,
+  showGlyphs,
   dragRef,
   onTap,
 }: CubeCellProps) {
@@ -84,6 +87,7 @@ export function CubeCell({
     return (
       <group position={position}>
         <MarkerBlock color={color} shape={shape} highlighted={isWinning} opacity={markerOpacity} />
+        {showGlyphs && <MarkerGlyph player={value} />}
       </group>
     );
   }

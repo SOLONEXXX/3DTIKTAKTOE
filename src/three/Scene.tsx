@@ -3,6 +3,8 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import type { Board, BoardSize, MarkerShape } from '../game/types';
 import { CubeGrid } from './CubeGrid';
+import { RefreshIcon } from '../components/icons';
+import { audio } from '../game/audio';
 
 interface SceneProps {
   board: Board;
@@ -15,16 +17,19 @@ interface SceneProps {
   oColor: string;
   xShape: MarkerShape;
   oShape: MarkerShape;
+  showGlyphs: boolean;
   gameGeneration: number;
   onTap: (index: number) => void;
 }
 
 const DRAG_THRESHOLD_PX = 6;
 
-export function Scene({ board, size, winLine, focusedLayer, interactive, blockedCells, xColor, oColor, xShape, oShape, gameGeneration, onTap }: SceneProps) {
+export function Scene({ board, size, winLine, focusedLayer, interactive, blockedCells, xColor, oColor, xShape, oShape, showGlyphs, gameGeneration, onTap }: SceneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef(false);
   const downPos = useRef({ x: 0, y: 0 });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const controlsRef = useRef<any>(null);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -69,11 +74,13 @@ export function Scene({ board, size, winLine, focusedLayer, interactive, blocked
           oColor={oColor}
           xShape={xShape}
           oShape={oShape}
+          showGlyphs={showGlyphs}
           gameGeneration={gameGeneration}
           dragRef={dragRef}
           onTap={onTap}
         />
         <OrbitControls
+          ref={controlsRef}
           enablePan={false}
           enableZoom
           minDistance={size * 1.4}
@@ -84,6 +91,18 @@ export function Scene({ board, size, winLine, focusedLayer, interactive, blocked
           dampingFactor={0.12}
         />
       </Canvas>
+      <button
+        type="button"
+        className="camera-reset-btn"
+        onClick={(e) => {
+          e.stopPropagation();
+          audio.playClick();
+          controlsRef.current?.reset();
+        }}
+        aria-label="Kamera zurücksetzen"
+      >
+        <RefreshIcon className="icon-btn-svg" />
+      </button>
     </div>
   );
 }

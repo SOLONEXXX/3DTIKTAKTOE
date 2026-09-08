@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import type { GameOverReason } from '../game/store';
 import type { GameMode, Player } from '../game/types';
 import { audio } from '../game/audio';
 import { COLOR_THEMES, SHAPES } from '../game/cosmetics';
 import { CAMPAIGN_MAX_LEVEL } from '../game/campaign';
+import { ShareIcon } from './icons';
 
 interface WinnerOverlayProps {
   winner: Player | null;
@@ -36,6 +38,7 @@ function unlockedAt(level: number): string | null {
 }
 
 export function WinnerOverlay({ winner, reason, mode, localPlayer, campaignLevel, onRematch, onMenu }: WinnerOverlayProps) {
+  const [shared, setShared] = useState(false);
   if (!reason) return null;
 
   const isCampaign = mode === 'campaign';
@@ -74,6 +77,27 @@ export function WinnerOverlay({ winner, reason, mode, localPlayer, campaignLevel
       : `Level ${campaignLevel} wiederholen`
     : 'Rematch';
 
+  const shareText = isCampaign
+    ? `Ich habe gerade Level ${campaignLevel} in 3D Tic-Tac-Toe geschafft! 🎉`
+    : 'Ich habe gerade in 3D Tic-Tac-Toe gewonnen! 🎉';
+
+  const handleShare = async () => {
+    audio.playClick();
+    if (navigator.share) {
+      try {
+        await navigator.share({ text: shareText });
+      } catch {
+        // user cancelled the native share sheet — nothing to do
+      }
+      return;
+    }
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(shareText);
+      setShared(true);
+      window.setTimeout(() => setShared(false), 1800);
+    }
+  };
+
   return (
     <div className="overlay">
       <div className={`overlay-card overlay-${variant}`}>
@@ -84,6 +108,12 @@ export function WinnerOverlay({ winner, reason, mode, localPlayer, campaignLevel
           {reason !== 'opponent-left' && (
             <button className="primary-btn" onClick={() => { audio.playClick(); onRematch(); }}>
               {rematchLabel}
+            </button>
+          )}
+          {variant === 'win' && (
+            <button className="primary-btn secondary" onClick={handleShare}>
+              <ShareIcon className="icon-btn-svg inline-icon" />
+              {shared ? 'Kopiert!' : 'Teilen'}
             </button>
           )}
           <button className="primary-btn secondary" onClick={() => { audio.playClick(); onMenu(); }}>

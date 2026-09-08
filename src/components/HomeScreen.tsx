@@ -1,7 +1,9 @@
+import { lazy, Suspense } from 'react';
 import { useGameStore } from '../game/store';
 import { audio } from '../game/audio';
-import { IdleCube } from '../three/IdleCube';
 import { PlayIcon, CosmeticsIcon, SettingsIcon, TrophyIcon } from './icons';
+
+const IdleCube = lazy(() => import('../three/IdleCube').then((m) => ({ default: m.IdleCube })));
 
 export function HomeScreen() {
   const background = useGameStore((s) => s.background);
@@ -24,7 +26,9 @@ export function HomeScreen() {
   return (
     <div className="screen home-screen">
       <div className={`home-backdrop bg-${background}`}>
-        <IdleCube colorTheme={markerColorTheme} shape={markerShape} />
+        <Suspense fallback={null}>
+          <IdleCube colorTheme={markerColorTheme} shape={markerShape} />
+        </Suspense>
         <div className="home-backdrop-fade" />
       </div>
 
@@ -38,25 +42,27 @@ export function HomeScreen() {
           <span className="game-title-accent">TIC·TAC·TOE</span>
         </h1>
 
-        <nav className="home-nav">
-          <button className="nav-tile nav-tile-primary" onClick={click(playNow)}>
-            <PlayIcon className="nav-icon" />
-            <span className="nav-label">Play</span>
-          </button>
-          <button className="nav-tile" onClick={click(goToCampaign)}>
-            <TrophyIcon className="nav-icon" />
-            <span className="nav-label">Level-Modus</span>
-            <span className="nav-badge">Lvl {bestCampaignLevel}</span>
-          </button>
-          <button className="nav-tile" onClick={click(goToCosmetics)}>
-            <CosmeticsIcon className="nav-icon" />
-            <span className="nav-label">Cosmetics</span>
-          </button>
-          <button className="nav-tile" onClick={click(goToSettings)}>
-            <SettingsIcon className="nav-icon" />
-            <span className="nav-label">Settings</span>
-          </button>
-        </nav>
+        <div className="home-nav-wrap">
+          <nav className="home-nav">
+            <button className="nav-tile nav-tile-primary" onClick={click(playNow)}>
+              <PlayIcon className="nav-icon" />
+              <span className="nav-label">Play</span>
+            </button>
+            <button className="nav-tile" onClick={click(goToCampaign)}>
+              <TrophyIcon className="nav-icon" />
+              <span className="nav-label">Level-Modus</span>
+              <span className="nav-badge">Lvl {bestCampaignLevel}</span>
+            </button>
+            <button className="nav-tile" onClick={click(goToCosmetics)}>
+              <CosmeticsIcon className="nav-icon" />
+              <span className="nav-label">Cosmetics</span>
+            </button>
+            <button className="nav-tile" onClick={click(goToSettings)}>
+              <SettingsIcon className="nav-icon" />
+              <span className="nav-label">Settings</span>
+            </button>
+          </nav>
+        </div>
       </div>
     </div>
   );

@@ -21,6 +21,14 @@ function App() {
   }, [tick]);
 
   useEffect(() => {
+    // A shared invite link (?join=CODE) drops the visitor straight into the online
+    // lobby, which reads and consumes the same query param to auto-join.
+    if (new URLSearchParams(window.location.search).has('join')) {
+      useGameStore.setState({ screen: 'lobby' });
+    }
+  }, []);
+
+  useEffect(() => {
     // Browsers only allow audio once a real user gesture has happened — kick off
     // the context-appropriate music track on the very first tap anywhere in the app.
     const startOnFirstInteraction = () => {
