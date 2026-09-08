@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
-import type { Board, BoardSize } from '../game/types';
+import type { Board, BoardSize, MarkerColorTheme, MarkerShape } from '../game/types';
 import { CubeGrid } from './CubeGrid';
 
 interface SceneProps {
@@ -10,12 +10,15 @@ interface SceneProps {
   winLine: number[];
   focusedLayer: number | null;
   interactive: boolean;
+  blockedCells: ReadonlySet<number>;
+  colorTheme: MarkerColorTheme;
+  shape: MarkerShape;
   onTap: (index: number) => void;
 }
 
 const DRAG_THRESHOLD_PX = 6;
 
-export function Scene({ board, size, winLine, focusedLayer, interactive, onTap }: SceneProps) {
+export function Scene({ board, size, winLine, focusedLayer, interactive, blockedCells, colorTheme, shape, onTap }: SceneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef(false);
   const downPos = useRef({ x: 0, y: 0 });
@@ -58,6 +61,9 @@ export function Scene({ board, size, winLine, focusedLayer, interactive, onTap }
           winLine={winLine}
           focusedLayer={focusedLayer}
           interactive={interactive}
+          blockedCells={blockedCells}
+          colorTheme={colorTheme}
+          shape={shape}
           dragRef={dragRef}
           onTap={onTap}
         />

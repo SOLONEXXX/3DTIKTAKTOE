@@ -1,7 +1,7 @@
 import { useMemo, type RefObject } from 'react';
 import { Line } from '@react-three/drei';
 import { toCoords } from '../game/board';
-import type { Board, BoardSize } from '../game/types';
+import type { Board, BoardSize, MarkerColorTheme, MarkerShape } from '../game/types';
 import { cellPosition } from './layout';
 import { CubeCell } from './CubeCell';
 import { VictoryPulse } from './VictoryPulse';
@@ -12,11 +12,25 @@ interface CubeGridProps {
   winLine: number[];
   focusedLayer: number | null;
   interactive: boolean;
+  blockedCells: ReadonlySet<number>;
+  colorTheme: MarkerColorTheme;
+  shape: MarkerShape;
   dragRef: RefObject<boolean>;
   onTap: (index: number) => void;
 }
 
-export function CubeGrid({ board, size, winLine, focusedLayer, interactive, dragRef, onTap }: CubeGridProps) {
+export function CubeGrid({
+  board,
+  size,
+  winLine,
+  focusedLayer,
+  interactive,
+  blockedCells,
+  colorTheme,
+  shape,
+  dragRef,
+  onTap,
+}: CubeGridProps) {
   const winSet = useMemo(() => new Set(winLine), [winLine]);
 
   const cells = useMemo(() => {
@@ -56,6 +70,9 @@ export function CubeGrid({ board, size, winLine, focusedLayer, interactive, drag
           dimmed={focusedLayer !== null && focusedLayer !== y}
           interactive={interactive && (focusedLayer === null || focusedLayer === y)}
           isWinning={winSet.has(index)}
+          blocked={blockedCells.has(index)}
+          colorTheme={colorTheme}
+          shape={shape}
           dragRef={dragRef}
           onTap={onTap}
         />

@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { applyMove, checkWinner, createBoard, isBoardFull, otherPlayer } from './board';
 import { requestBotMove } from './aiClient';
 import { botMoveDelayMs } from './ai';
+import { campaignBlockedCells, campaignDifficulty, CAMPAIGN_BOARD_SIZE } from './campaign';
+import { audio } from './audio';
 import {
   createClockState,
   hasTimedOut,
@@ -17,12 +19,14 @@ import type {
   BoardSize,
   Difficulty,
   GameMode,
+  MarkerColorTheme,
+  MarkerShape,
   Player,
   TimeControl,
   WinResult,
 } from './types';
 
-export type Screen = 'home' | 'settings' | 'cosmetics' | 'lobby' | 'game';
+export type Screen = 'home' | 'settings' | 'cosmetics' | 'app-settings' | 'campaign' | 'lobby' | 'game';
 export type GameOverReason = 'line' | 'draw' | 'timeout' | 'resign' | 'opponent-left' | null;
 
 export function timeControlFromIndex(index: number): TimeControl {
@@ -37,7 +41,9 @@ export const TIME_PRESETS: { label: string; timeControl: TimeControl }[] = [
   { label: 'No clock', timeControl: { initialMs: 24 * 60 * 60_000, incrementMs: 0 } },
 ];
 
-const SETTINGS_KEY = 'ttt3d:settings:v1';
+const UNLIMITED_TIME_CONTROL = TIME_PRESETS[4].timeControl;
+
+const SETTINGS_KEY = 'ttt3d:settings:v2';
 
 interface PersistedSettings {
   size: BoardSize;
@@ -45,6 +51,14 @@ interface PersistedSettings {
   difficulty: Difficulty;
   timeControlIndex: number;
   background: BackgroundTheme;
+  markerColorTheme: MarkerColorTheme;
+  markerShape: MarkerShape;
+  musicVolume: number;
+  sfxVolume: number;
+  musicEnabled: boolean;
+  sfxEnabled: boolean;
+  playerName: string;
+  campaignLevel: number;
 }
 
 function loadSettings(): Partial<PersistedSettings> {
@@ -83,8 +97,20 @@ interface GameState {
   difficulty: Difficulty;
   timeControlIndex: number;
   background: BackgroundTheme;
+  markerColorTheme: MarkerColorTheme;
+  markerShape: MarkerShape;
+  musicVolume: number;
+  sfxVolume: number;
+  musicEnabled: boolean;
+  sfxEnabled: boolean;
+  playerName: string;
+  /** Persisted resume point / high-water mark — advances the instant a campaign win lands. */
+  campaignLevel: number;
+  /** The level number actually shown on the current game screen, stable until the next startCampaignLevel. */
+  campaignLevelInPlay: number;
   activeTimeControl: TimeControl;
   board: Board;
+  blockedCells: Set<number>;
   turn: Player;
   localPlayer: Player;
   winner: WinResult | null;
@@ -100,14 +126,24 @@ interface GameState {
   goHome: () => void;
   goToSettings: () => void;
   goToCosmetics: () => void;
+  goToAppSettings: () => void;
+  goToCampaign: () => void;
   setSize: (size: BoardSize) => void;
   setMode: (mode: GameMode) => void;
   setDifficulty: (difficulty: Difficulty) => void;
   setTimeControlIndex: (index: number) => void;
   setBackground: (background: BackgroundTheme) => void;
+  setMarkerColorTheme: (theme: MarkerColorTheme) => void;
+  setMarkerShape: (shape: MarkerShape) => void;
+  setMusicVolume: (v: number) => void;
+  setSfxVolume: (v: number) => void;
+  setMusicEnabled: (enabled: boolean) => void;
+  setSfxEnabled: (enabled: boolean) => void;
+  setPlayerName: (name: string) => void;
   playNow: () => void;
   startLocalGame: (size: BoardSize, timeControl: TimeControl) => void;
   startBotGame: (size: BoardSize, difficulty: Difficulty, timeControl: TimeControl) => void;
+  startCampaignLevel: (level?: number) => void;
   openOnlineLobby: () => void;
   startOnlineHost: (size: BoardSize, timeControl: TimeControl) => Promise<string>;
   startOnlineJoin: (code: string) => Promise<void>;
@@ -121,10 +157,12 @@ interface GameState {
   __handleNetMessage: (message: NetMessage) => void;
 }
 
-function canPlayerAct(state: Pick<GameState, 'mode' | 'turn' | 'localPlayer' | 'winner' | 'botThinking' | 'online'>) {
+function canPlayerAct(
+  state: Pick<GameState, 'mode' | 'turn' | 'localPlayer' | 'winner' | 'botThinking' | 'online'>,
+) {
   if (state.winner) return false;
-  if (state.mode === 'bot' && state.turn !== state.localPlayer) return false;
-  if (state.mode === 'bot' && state.botThinking) return false;
+  if ((state.mode === 'bot' || state.mode === 'campaign') && state.turn !== state.localPlayer) return false;
+  if ((state.mode === 'bot' || state.mode === 'campaign') && state.botThinking) return false;
   if (state.mode === 'online' && state.turn !== state.localPlayer) return false;
   if (state.mode === 'online' && state.online.status !== 'connected') return false;
   return true;
@@ -133,14 +171,16 @@ function canPlayerAct(state: Pick<GameState, 'mode' | 'turn' | 'localPlayer' | '
 function finishIfGameOver(
   board: Board,
   size: BoardSize,
+  blocked: ReadonlySet<number>,
 ): { winner: WinResult | null; reason: GameOverReason } {
   const winner = checkWinner(board, size);
   if (winner) return { winner, reason: 'line' };
-  if (isBoardFull(board)) return { winner: null, reason: 'draw' };
+  if (isBoardFull(board, blocked)) return { winner: null, reason: 'draw' };
   return { winner: null, reason: null };
 }
 
 const DEFAULT_TIME_CONTROL_INDEX = 2;
+const EMPTY_BLOCKED: ReadonlySet<number> = new Set();
 
 export const useGameStore = create<GameState>((set, get) => ({
   screen: 'home',
@@ -149,8 +189,18 @@ export const useGameStore = create<GameState>((set, get) => ({
   difficulty: persisted.difficulty ?? 50,
   timeControlIndex: persisted.timeControlIndex ?? DEFAULT_TIME_CONTROL_INDEX,
   background: persisted.background ?? 'nebula',
+  markerColorTheme: persisted.markerColorTheme ?? 'classic',
+  markerShape: persisted.markerShape ?? 'cube',
+  musicVolume: persisted.musicVolume ?? 0.5,
+  sfxVolume: persisted.sfxVolume ?? 0.7,
+  musicEnabled: persisted.musicEnabled ?? true,
+  sfxEnabled: persisted.sfxEnabled ?? true,
+  playerName: persisted.playerName ?? 'Spieler',
+  campaignLevel: persisted.campaignLevel ?? 1,
+  campaignLevelInPlay: persisted.campaignLevel ?? 1,
   activeTimeControl: timeControlFromIndex(persisted.timeControlIndex ?? DEFAULT_TIME_CONTROL_INDEX),
   board: createBoard(persisted.size ?? 4),
+  blockedCells: EMPTY_BLOCKED as Set<number>,
   turn: 'X',
   localPlayer: 'X',
   winner: null,
@@ -164,6 +214,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   goHome: () => {
     get().online.session?.destroy();
+    audio.stopMusic();
     set({
       screen: 'home',
       online: { session: null, status: 'idle', roomCode: null, isHost: false },
@@ -172,6 +223,8 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   goToSettings: () => set({ screen: 'settings' }),
   goToCosmetics: () => set({ screen: 'cosmetics' }),
+  goToAppSettings: () => set({ screen: 'app-settings' }),
+  goToCampaign: () => set({ screen: 'campaign' }),
 
   setSize: (size) => {
     saveSettings({ size });
@@ -193,6 +246,39 @@ export const useGameStore = create<GameState>((set, get) => ({
     saveSettings({ background });
     set({ background });
   },
+  setMarkerColorTheme: (markerColorTheme) => {
+    saveSettings({ markerColorTheme });
+    set({ markerColorTheme });
+  },
+  setMarkerShape: (markerShape) => {
+    saveSettings({ markerShape });
+    set({ markerShape });
+  },
+  setMusicVolume: (musicVolume) => {
+    saveSettings({ musicVolume });
+    audio.setMusicVolume(musicVolume);
+    set({ musicVolume });
+  },
+  setSfxVolume: (sfxVolume) => {
+    saveSettings({ sfxVolume });
+    audio.setSfxVolume(sfxVolume);
+    set({ sfxVolume });
+  },
+  setMusicEnabled: (musicEnabled) => {
+    saveSettings({ musicEnabled });
+    audio.setMusicEnabled(musicEnabled);
+    set({ musicEnabled });
+  },
+  setSfxEnabled: (sfxEnabled) => {
+    saveSettings({ sfxEnabled });
+    audio.setSfxEnabled(sfxEnabled);
+    set({ sfxEnabled });
+  },
+  setPlayerName: (playerName) => {
+    const trimmed = playerName.trim().slice(0, 20) || 'Spieler';
+    saveSettings({ playerName: trimmed });
+    set({ playerName: trimmed });
+  },
 
   playNow: () => {
     const state = get();
@@ -207,12 +293,14 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   startLocalGame: (size, timeControl) => {
+    audio.startMusic();
     set((s) => ({
       screen: 'game',
       mode: 'local',
       size,
       activeTimeControl: timeControl,
       board: createBoard(size),
+      blockedCells: EMPTY_BLOCKED as Set<number>,
       turn: 'X',
       localPlayer: 'X',
       winner: null,
@@ -226,6 +314,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   startBotGame: (size, difficulty, timeControl) => {
+    audio.startMusic();
     set((s) => ({
       screen: 'game',
       mode: 'bot',
@@ -233,6 +322,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       difficulty,
       activeTimeControl: timeControl,
       board: createBoard(size),
+      blockedCells: EMPTY_BLOCKED as Set<number>,
       turn: 'X',
       localPlayer: 'X',
       winner: null,
@@ -241,6 +331,34 @@ export const useGameStore = create<GameState>((set, get) => ({
       lastMoveIndex: null,
       botThinking: false,
       clock: startClock(createClockState(timeControl), 'X', Date.now()),
+      gameGeneration: s.gameGeneration + 1,
+    }));
+  },
+
+  startCampaignLevel: (level) => {
+    const state = get();
+    const targetLevel = level ?? state.campaignLevel;
+    const size = CAMPAIGN_BOARD_SIZE;
+    const difficulty = campaignDifficulty(targetLevel);
+    const blocked = campaignBlockedCells(targetLevel, size);
+    audio.startMusic();
+    set((s) => ({
+      screen: 'game',
+      mode: 'campaign',
+      size,
+      difficulty,
+      campaignLevelInPlay: targetLevel,
+      activeTimeControl: UNLIMITED_TIME_CONTROL,
+      board: createBoard(size),
+      blockedCells: blocked,
+      turn: 'X',
+      localPlayer: 'X',
+      winner: null,
+      gameOverReason: null,
+      moveCount: 0,
+      lastMoveIndex: null,
+      botThinking: false,
+      clock: startClock(createClockState(UNLIMITED_TIME_CONTROL), 'X', Date.now()),
       gameGeneration: s.gameGeneration + 1,
     }));
   },
@@ -254,12 +372,14 @@ export const useGameStore = create<GameState>((set, get) => ({
         if (status === 'connected') {
           const hostPlayer: Player = Math.random() < 0.5 ? 'X' : 'O';
           session.send({ type: 'init', hostPlayer, size, timeControl });
+          audio.startMusic();
           set((s) => ({
             screen: 'game',
             mode: 'online',
             size,
             activeTimeControl: timeControl,
             board: createBoard(size),
+            blockedCells: EMPTY_BLOCKED as Set<number>,
             turn: 'X',
             localPlayer: hostPlayer,
             winner: null,
@@ -299,6 +419,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   leaveOnline: () => {
     get().online.session?.send({ type: 'resign', player: get().localPlayer });
     get().online.session?.destroy();
+    audio.stopMusic();
     set({
       screen: 'home',
       online: { session: null, status: 'idle', roomCode: null, isHost: false },
@@ -308,23 +429,25 @@ export const useGameStore = create<GameState>((set, get) => ({
   placeMark: (index) => {
     const state = get();
     if (!canPlayerAct(state)) return;
-    if (state.board[index] !== null) return;
+    if (state.board[index] !== null || state.blockedCells.has(index)) return;
     get().__applyMove(index);
   },
 
   __applyMove: (index) => {
     const state = get();
     if (state.winner || state.gameOverReason) return;
-    if (state.board[index] !== null) return;
+    if (state.board[index] !== null || state.blockedCells.has(index)) return;
 
     const player = state.turn;
     const board = applyMove(state.board, index, player);
     const next = otherPlayer(player);
-    const { winner, reason } = finishIfGameOver(board, state.size);
+    const { winner, reason } = finishIfGameOver(board, state.size, state.blockedCells);
     const now = Date.now();
     const clock = winner || reason
       ? tickClock(state.clock, now)
       : switchClock(state.clock, player, next, state.activeTimeControl, now);
+
+    audio.playPlace(player);
 
     set({
       board,
@@ -340,29 +463,47 @@ export const useGameStore = create<GameState>((set, get) => ({
       state.online.session?.send({ type: 'move', index, player });
     }
 
-    if (!winner && !reason && state.mode === 'bot' && next !== state.localPlayer) {
-      const generation = state.gameGeneration;
-      set({ botThinking: true });
-      const delay = new Promise<void>((resolve) => setTimeout(resolve, botMoveDelayMs(state.difficulty)));
-      Promise.all([requestBotMove(board, state.size, next, state.difficulty), delay])
-        .then(([botIndex]) => {
-          const fresh = get();
-          if (fresh.gameGeneration !== generation || botIndex === null) {
+    if (winner || reason) {
+      if (reason === 'draw') audio.playDraw();
+      else if (winner) {
+        const localWins = state.mode === 'local' || winner.winner === state.localPlayer;
+        if (localWins) audio.playWin();
+        else audio.playLose();
+      }
+      if (state.mode === 'campaign' && winner && winner.winner === state.localPlayer) {
+        const nextLevel = state.campaignLevel + 1;
+        saveSettings({ campaignLevel: nextLevel });
+        set({ campaignLevel: nextLevel });
+      }
+      return;
+    }
+
+    if (state.mode === 'bot' || state.mode === 'campaign') {
+      if (next !== state.localPlayer) {
+        const generation = state.gameGeneration;
+        set({ botThinking: true });
+        const delay = new Promise<void>((resolve) => setTimeout(resolve, botMoveDelayMs(state.difficulty)));
+        Promise.all([requestBotMove(board, state.size, next, state.difficulty, state.blockedCells), delay])
+          .then(([botIndex]) => {
+            const fresh = get();
+            if (fresh.gameGeneration !== generation || botIndex === null) {
+              set({ botThinking: false });
+              return;
+            }
             set({ botThinking: false });
-            return;
-          }
-          set({ botThinking: false });
-          get().__applyMove(botIndex);
-        })
-        .catch(() => {
-          set({ botThinking: false });
-        });
+            get().__applyMove(botIndex);
+          })
+          .catch(() => {
+            set({ botThinking: false });
+          });
+      }
     }
   },
 
   resign: () => {
     const state = get();
     if (state.winner || state.gameOverReason) return;
+    audio.playLose();
     set({ gameOverReason: 'resign', winner: { winner: otherPlayer(state.localPlayer), line: [] }, clock: tickClock(state.clock, Date.now()) });
     if (state.mode === 'online') {
       state.online.session?.send({ type: 'resign', player: state.localPlayer });
@@ -371,8 +512,13 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   rematch: () => {
     const state = get();
+    if (state.mode === 'campaign') {
+      state.startCampaignLevel(state.campaignLevel);
+      return;
+    }
     set((s) => ({
       board: createBoard(state.size),
+      blockedCells: EMPTY_BLOCKED as Set<number>,
       turn: 'X',
       winner: null,
       gameOverReason: null,
@@ -414,12 +560,14 @@ export const useGameStore = create<GameState>((set, get) => ({
   __handleNetMessage: (message: NetMessage) => {
     const state = get();
     if (message.type === 'init') {
+      audio.startMusic();
       set({
         mode: 'online',
         size: message.size,
         activeTimeControl: message.timeControl,
         localPlayer: otherPlayer(message.hostPlayer),
         board: createBoard(message.size),
+        blockedCells: EMPTY_BLOCKED as Set<number>,
         turn: 'X',
         winner: null,
         gameOverReason: null,
@@ -432,13 +580,20 @@ export const useGameStore = create<GameState>((set, get) => ({
     } else if (message.type === 'move') {
       const board = applyMove(state.board, message.index, message.player);
       const next = otherPlayer(message.player);
-      const { winner, reason } = finishIfGameOver(board, state.size);
+      const { winner, reason } = finishIfGameOver(board, state.size, state.blockedCells);
       const now = Date.now();
       const clock = winner || reason
         ? tickClock(state.clock, now)
         : switchClock(state.clock, message.player, next, state.activeTimeControl, now);
+      audio.playPlace(message.player);
+      if (reason === 'draw') audio.playDraw();
+      else if (winner) {
+        if (winner.winner === state.localPlayer) audio.playWin();
+        else audio.playLose();
+      }
       set({ board, turn: next, winner, gameOverReason: reason, clock, moveCount: state.moveCount + 1, lastMoveIndex: message.index });
     } else if (message.type === 'resign') {
+      audio.playWin();
       set({ gameOverReason: 'resign', winner: { winner: otherPlayer(message.player), line: [] } });
     } else if (message.type === 'rematch-offer') {
       state.online.session?.send({ type: 'rematch-accept' });
@@ -448,3 +603,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
   },
 }));
+
+// Sync the audio module with whatever was persisted, so the very first sound played
+// already respects the user's saved volume/mute preferences.
+{
+  const initial = useGameStore.getState();
+  audio.setMusicVolume(initial.musicVolume);
+  audio.setSfxVolume(initial.sfxVolume);
+  audio.setMusicEnabled(initial.musicEnabled);
+  audio.setSfxEnabled(initial.sfxEnabled);
+}

@@ -4,7 +4,7 @@ import type { Group } from 'three';
 import * as THREE from 'three';
 import { cellPosition } from './layout';
 import { MarkerBlock } from './MarkerBlock';
-import type { Player } from '../game/types';
+import type { MarkerColorTheme, MarkerShape, Player } from '../game/types';
 
 const SIZE = 4;
 const DECOR: { x: number; y: number; z: number; player: Player }[] = [
@@ -19,7 +19,12 @@ const DECOR: { x: number; y: number; z: number; player: Player }[] = [
 const boxGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
 const edgesGeometry = new THREE.EdgesGeometry(boxGeometry);
 
-function SpinningRig() {
+interface SpinningRigProps {
+  colorTheme: MarkerColorTheme;
+  shape: MarkerShape;
+}
+
+function SpinningRig({ colorTheme, shape }: SpinningRigProps) {
   const ref = useRef<Group>(null);
   useFrame((state, delta) => {
     if (!ref.current) return;
@@ -45,20 +50,25 @@ function SpinningRig() {
       ))}
       {DECOR.map((d, i) => (
         <group key={i} position={cellPosition(SIZE, d.x, d.y, d.z)}>
-          <MarkerBlock player={d.player} size={0.58} animate={false} />
+          <MarkerBlock player={d.player} size={0.58} animate={false} colorTheme={colorTheme} shape={shape} />
         </group>
       ))}
     </group>
   );
 }
 
-export function IdleCube() {
+interface IdleCubeProps {
+  colorTheme?: MarkerColorTheme;
+  shape?: MarkerShape;
+}
+
+export function IdleCube({ colorTheme = 'classic', shape = 'cube' }: IdleCubeProps) {
   return (
     <Canvas camera={{ position: [6.5, 5.5, 8], fov: 42 }} gl={{ antialias: true, alpha: true }} dpr={[1, 1.6]}>
       <ambientLight intensity={0.55} />
       <directionalLight position={[6, 8, 5]} intensity={0.9} />
       <directionalLight position={[-6, -2, -4]} intensity={0.3} color="#6d8dff" />
-      <SpinningRig />
+      <SpinningRig colorTheme={colorTheme} shape={shape} />
     </Canvas>
   );
 }

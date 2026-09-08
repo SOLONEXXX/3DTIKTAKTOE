@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { timeControlFromIndex, useGameStore } from '../game/store';
+import { audio } from '../game/audio';
 
 interface OnlineLobbyProps {
   onBack: () => void;
@@ -17,6 +18,7 @@ export function OnlineLobby({ onBack }: OnlineLobbyProps) {
   const [error, setError] = useState<string | null>(null);
 
   const handleHost = async () => {
+    audio.playClick();
     setMode('host');
     setError(null);
     try {
@@ -28,6 +30,7 @@ export function OnlineLobby({ onBack }: OnlineLobbyProps) {
 
   const handleJoin = async () => {
     if (joinCode.trim().length < 3) return;
+    audio.playClick();
     setMode('join');
     setError(null);
     try {
@@ -85,7 +88,7 @@ export function OnlineLobby({ onBack }: OnlineLobbyProps) {
 
       {error && <p className="lobby-error">{error}</p>}
 
-      <button className="link-btn" onClick={onBack}>
+      <button className="link-btn" onClick={() => { audio.playClick(); onBack(); }}>
         Zurück
       </button>
     </div>

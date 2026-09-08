@@ -1,6 +1,8 @@
 import { useGameStore } from '../game/store';
+import { audio } from '../game/audio';
 import { IdleCube } from '../three/IdleCube';
-import { BackIcon } from './icons';
+import { BackIcon, LockIcon } from './icons';
+import { COLOR_THEMES, SHAPES, isColorThemeUnlocked, isShapeUnlocked } from '../game/cosmetics';
 import type { BackgroundTheme } from '../game/types';
 
 const THEMES: { id: BackgroundTheme; label: string }[] = [
@@ -8,18 +10,27 @@ const THEMES: { id: BackgroundTheme; label: string }[] = [
   { id: 'ocean', label: 'Ozean' },
   { id: 'sunset', label: 'Sonnenuntergang' },
   { id: 'starfield', label: 'Sternenfeld' },
+  { id: 'aurora', label: 'Aurora' },
+  { id: 'matrix', label: 'Matrix' },
+  { id: 'lava', label: 'Lava' },
+  { id: 'crystal', label: 'Kristall' },
   { id: 'void', label: 'Leere' },
 ];
 
 export function CosmeticsScreen() {
   const background = useGameStore((s) => s.background);
   const setBackground = useGameStore((s) => s.setBackground);
+  const markerColorTheme = useGameStore((s) => s.markerColorTheme);
+  const setMarkerColorTheme = useGameStore((s) => s.setMarkerColorTheme);
+  const markerShape = useGameStore((s) => s.markerShape);
+  const setMarkerShape = useGameStore((s) => s.setMarkerShape);
+  const campaignLevel = useGameStore((s) => s.campaignLevel);
   const goHome = useGameStore((s) => s.goHome);
 
   return (
     <div className="screen cosmetics-screen">
       <div className="settings-topbar">
-        <button className="icon-btn" onClick={goHome} aria-label="Zurück">
+        <button className="icon-btn" onClick={() => { audio.playClick(); goHome(); }} aria-label="Zurück">
           <BackIcon className="icon-btn-svg" />
         </button>
         <h1 className="settings-title">Cosmetics</h1>
@@ -27,7 +38,7 @@ export function CosmeticsScreen() {
       </div>
 
       <div className={`cosmetics-preview bg-${background}`}>
-        <IdleCube />
+        <IdleCube colorTheme={markerColorTheme} shape={markerShape} />
       </div>
 
       <div className="settings-scroll">
@@ -38,12 +49,58 @@ export function CosmeticsScreen() {
               <button
                 key={t.id}
                 className={`theme-card ${background === t.id ? 'selected' : ''}`}
-                onClick={() => setBackground(t.id)}
+                onClick={() => { audio.playClick(); setBackground(t.id); }}
               >
                 <div className={`theme-swatch bg-${t.id}`} />
                 <span>{t.label}</span>
               </button>
             ))}
+          </div>
+        </section>
+
+        <section className="menu-section">
+          <h2>Farbschema</h2>
+          <div className="theme-grid">
+            {COLOR_THEMES.map((c) => {
+              const unlocked = isColorThemeUnlocked(c.id, campaignLevel);
+              return (
+                <button
+                  key={c.id}
+                  className={`theme-card ${markerColorTheme === c.id ? 'selected' : ''} ${!unlocked ? 'locked' : ''}`}
+                  onClick={() => { if (unlocked) { audio.playClick(); setMarkerColorTheme(c.id); } }}
+                  disabled={!unlocked}
+                >
+                  <div className="theme-swatch color-swatch" style={{ background: `linear-gradient(135deg, ${c.xColor}, ${c.oColor})` }}>
+                    {!unlocked && <LockIcon className="lock-icon" />}
+                  </div>
+                  <span>{c.label}</span>
+                  {!unlocked && <span className="unlock-hint">Level {c.unlockLevel}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="menu-section">
+          <h2>Form</h2>
+          <div className="theme-grid">
+            {SHAPES.map((s) => {
+              const unlocked = isShapeUnlocked(s.id, campaignLevel);
+              return (
+                <button
+                  key={s.id}
+                  className={`theme-card ${markerShape === s.id ? 'selected' : ''} ${!unlocked ? 'locked' : ''}`}
+                  onClick={() => { if (unlocked) { audio.playClick(); setMarkerShape(s.id); } }}
+                  disabled={!unlocked}
+                >
+                  <div className="theme-swatch shape-swatch">
+                    {!unlocked && <LockIcon className="lock-icon" />}
+                  </div>
+                  <span>{s.label}</span>
+                  {!unlocked && <span className="unlock-hint">Level {s.unlockLevel}</span>}
+                </button>
+              );
+            })}
           </div>
         </section>
       </div>

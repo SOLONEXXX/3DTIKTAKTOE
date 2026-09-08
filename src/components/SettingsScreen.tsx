@@ -1,5 +1,6 @@
 import type { ComponentType, CSSProperties } from 'react';
 import { TIME_PRESETS, useGameStore } from '../game/store';
+import { audio } from '../game/audio';
 import { BoardSizeSwitch } from './BoardSizeSwitch';
 import { BackIcon, BotIcon, DuoIcon, GlobeIcon } from './icons';
 import type { GameMode } from '../game/types';
@@ -33,7 +34,7 @@ export function SettingsScreen() {
   return (
     <div className="screen settings-screen">
       <div className="settings-topbar">
-        <button className="icon-btn" onClick={goHome} aria-label="Zurück">
+        <button className="icon-btn" onClick={() => { audio.playClick(); goHome(); }} aria-label="Zurück">
           <BackIcon className="icon-btn-svg" />
         </button>
         <h1 className="settings-title">Einstellungen</h1>
@@ -43,7 +44,7 @@ export function SettingsScreen() {
       <div className="settings-scroll">
         <section className="menu-section">
           <h2>Spielfeld</h2>
-          <BoardSizeSwitch value={size} onChange={setSize} />
+          <BoardSizeSwitch value={size} onChange={(v) => { audio.playClick(); setSize(v); }} />
         </section>
 
         <section className="menu-section">
@@ -55,7 +56,7 @@ export function SettingsScreen() {
                 <button
                   key={m.mode}
                   className={`option-btn wide with-icon ${mode === m.mode ? 'selected' : ''}`}
-                  onClick={() => setMode(m.mode)}
+                  onClick={() => { audio.playClick(); setMode(m.mode); }}
                 >
                   <Icon className="option-btn-icon" />
                   <span className="option-btn-text">
@@ -82,6 +83,7 @@ export function SettingsScreen() {
                 max={100}
                 value={difficulty}
                 onChange={(e) => setDifficulty(Number(e.target.value))}
+                onPointerUp={() => audio.playClick()}
                 className="difficulty-slider"
                 style={{ '--pct': `${difficulty}%` } as CSSProperties}
               />
@@ -100,7 +102,7 @@ export function SettingsScreen() {
               <button
                 key={preset.label}
                 className={`option-btn ${timeControlIndex === i ? 'selected' : ''}`}
-                onClick={() => setTimeControlIndex(i)}
+                onClick={() => { audio.playClick(); setTimeControlIndex(i); }}
               >
                 {preset.label}
               </button>
@@ -109,7 +111,7 @@ export function SettingsScreen() {
         </section>
       </div>
 
-      <button className="primary-btn" onClick={playNow}>
+      <button className="primary-btn" onClick={() => { audio.playClick(); playNow(); }}>
         {mode === 'online' ? 'Weiter' : 'Spiel starten'}
       </button>
     </div>

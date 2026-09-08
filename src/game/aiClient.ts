@@ -31,14 +31,16 @@ export function requestBotMove(
   size: BoardSize,
   player: Player,
   difficulty: Difficulty,
+  blocked?: ReadonlySet<number>,
 ): Promise<number | null> {
   const activeWorker = getWorker();
   if (!activeWorker) {
-    return Promise.resolve(getBotMove(board, size, player, difficulty));
+    return Promise.resolve(getBotMove(board, size, player, difficulty, blocked));
   }
 
   const requestId = requestCounter++;
-  const request: AiRequest = { board, size, player, difficulty, requestId };
+  const blockedCells = blocked ? Array.from(blocked) : [];
+  const request: AiRequest = { board, size, player, difficulty, blockedCells, requestId };
   return new Promise((resolve) => {
     pending.set(requestId, resolve);
     activeWorker.postMessage(request);

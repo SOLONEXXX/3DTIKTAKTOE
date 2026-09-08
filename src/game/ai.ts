@@ -29,8 +29,14 @@ export function evaluateBoard(board: Board, size: BoardSize, player: Player): nu
 
 const WIN_SCORE = 1e9;
 
-function orderedCandidates(board: Board, size: BoardSize, player: Player, limit: number): number[] {
-  const empties = getEmptyIndices(board);
+function orderedCandidates(
+  board: Board,
+  size: BoardSize,
+  player: Player,
+  limit: number,
+  blocked?: ReadonlySet<number>,
+): number[] {
+  const empties = getEmptyIndices(board, blocked);
   const scored = empties.map((idx) => {
     const trial = applyMove(board, idx, player);
     return { idx, score: evaluateBoard(trial, size, player) };
@@ -48,25 +54,26 @@ function minimax(
   maximizing: boolean,
   aiPlayer: Player,
   candidateLimit: number,
+  blocked: ReadonlySet<number> | undefined,
 ): number {
   const result = checkWinner(board, size);
   if (result) {
     if (result.winner === aiPlayer) return WIN_SCORE + depth;
     return -WIN_SCORE - depth;
   }
-  const empties = getEmptyIndices(board);
+  const empties = getEmptyIndices(board, blocked);
   if (depth === 0 || empties.length === 0) {
     return evaluateBoard(board, size, aiPlayer);
   }
 
   const current = maximizing ? aiPlayer : otherPlayer(aiPlayer);
-  const candidates = orderedCandidates(board, size, current, candidateLimit);
+  const candidates = orderedCandidates(board, size, current, candidateLimit, blocked);
 
   if (maximizing) {
     let value = -Infinity;
     for (const idx of candidates) {
       const child = applyMove(board, idx, current);
-      value = Math.max(value, minimax(child, size, depth - 1, alpha, beta, false, aiPlayer, candidateLimit));
+      value = Math.max(value, minimax(child, size, depth - 1, alpha, beta, false, aiPlayer, candidateLimit, blocked));
       alpha = Math.max(alpha, value);
       if (alpha >= beta) break;
     }
@@ -75,7 +82,7 @@ function minimax(
     let value = Infinity;
     for (const idx of candidates) {
       const child = applyMove(board, idx, current);
-      value = Math.min(value, minimax(child, size, depth - 1, alpha, beta, true, aiPlayer, candidateLimit));
+      value = Math.min(value, minimax(child, size, depth - 1, alpha, beta, true, aiPlayer, candidateLimit, blocked));
       beta = Math.min(beta, value);
       if (alpha >= beta) break;
     }
@@ -126,34 +133,40 @@ export function botMoveDelayMs(difficulty: Difficulty): number {
   return Math.max(200, Math.round(base + jitter));
 }
 
-function findImmediateWin(board: Board, size: BoardSize, player: Player): number | null {
-  for (const idx of getEmptyIndices(board)) {
+function findImmediateWin(board: Board, size: BoardSize, player: Player, blocked?: ReadonlySet<number>): number | null {
+  for (const idx of getEmptyIndices(board, blocked)) {
     const trial = applyMove(board, idx, player);
     if (checkWinner(trial, size)?.winner === player) return idx;
   }
   return null;
 }
 
-function findThreats(board: Board, size: BoardSize, opponent: Player): number[] {
+function findThreats(board: Board, size: BoardSize, opponent: Player, blocked?: ReadonlySet<number>): number[] {
   const threats: number[] = [];
-  for (const idx of getEmptyIndices(board)) {
+  for (const idx of getEmptyIndices(board, blocked)) {
     const trial = applyMove(board, idx, opponent);
     if (checkWinner(trial, size)?.winner === opponent) threats.push(idx);
   }
   return threats;
 }
 
-export function getBotMove(board: Board, size: BoardSize, player: Player, difficulty: Difficulty): number | null {
-  const empties = getEmptyIndices(board);
+export function getBotMove(
+  board: Board,
+  size: BoardSize,
+  player: Player,
+  difficulty: Difficulty,
+  blocked?: ReadonlySet<number>,
+): number | null {
+  const empties = getEmptyIndices(board, blocked);
   if (empties.length === 0) return null;
 
   const config = configFor(difficulty, size);
   const opponent = otherPlayer(player);
 
-  const winningMove = findImmediateWin(board, size, player);
+  const winningMove = findImmediateWin(board, size, player, blocked);
   if (winningMove !== null && Math.random() < config.winChance) return winningMove;
 
-  const threats = findThreats(board, size, opponent);
+  const threats = findThreats(board, size, opponent, blocked);
   if (threats.length > 0 && Math.random() < config.blockChance) {
     if (threats.length === 1) return threats[0];
     // Multiple simultaneous threats: search will pick the best available damage control.
@@ -163,13 +176,13 @@ export function getBotMove(board: Board, size: BoardSize, player: Player, diffic
     return empties[Math.floor(Math.random() * empties.length)];
   }
 
-  const candidates = orderedCandidates(board, size, player, config.candidateLimit);
+  const candidates = orderedCandidates(board, size, player, config.candidateLimit, blocked);
   let bestScore = -Infinity;
   let bestMoves: number[] = [];
 
   for (const idx of candidates) {
     const child = applyMove(board, idx, player);
-    const score = minimax(child, size, config.depth - 1, -Infinity, Infinity, false, player, config.candidateLimit);
+    const score = minimax(child, size, config.depth - 1, -Infinity, Infinity, false, player, config.candidateLimit, blocked);
     if (score > bestScore) {
       bestScore = score;
       bestMoves = [idx];

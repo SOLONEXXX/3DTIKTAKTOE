@@ -3,6 +3,8 @@ import { useGameStore } from './game/store';
 import { HomeScreen } from './components/HomeScreen';
 import { SettingsScreen } from './components/SettingsScreen';
 import { CosmeticsScreen } from './components/CosmeticsScreen';
+import { AppSettingsScreen } from './components/AppSettingsScreen';
+import { CampaignScreen } from './components/CampaignScreen';
 import { OnlineLobby } from './components/OnlineLobby';
 import { GameScreen } from './components/GameScreen';
 import './App.css';
@@ -22,6 +24,8 @@ function App() {
       {screen === 'home' && <HomeScreen />}
       {screen === 'settings' && <SettingsScreen />}
       {screen === 'cosmetics' && <CosmeticsScreen />}
+      {screen === 'app-settings' && <AppSettingsScreen />}
+      {screen === 'campaign' && <CampaignScreen />}
       {screen === 'lobby' && <OnlineLobby onBack={goHome} />}
       {screen === 'game' && <GameScreen onExit={goHome} />}
     </div>

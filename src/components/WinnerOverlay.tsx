@@ -1,11 +1,15 @@
 import type { GameOverReason } from '../game/store';
 import type { GameMode, Player } from '../game/types';
+import { audio } from '../game/audio';
+import { COLOR_THEMES, SHAPES } from '../game/cosmetics';
+import { CAMPAIGN_MAX_LEVEL } from '../game/campaign';
 
 interface WinnerOverlayProps {
   winner: Player | null;
   reason: GameOverReason;
   mode: GameMode;
   localPlayer: Player;
+  campaignLevel: number;
   onRematch: () => void;
   onMenu: () => void;
 }
@@ -23,21 +27,37 @@ function reasonLabel(reason: GameOverReason): string {
   }
 }
 
-export function WinnerOverlay({ winner, reason, mode, localPlayer, onRematch, onMenu }: WinnerOverlayProps) {
+function unlockedAt(level: number): string | null {
+  const color = COLOR_THEMES.find((c) => c.unlockLevel === level);
+  if (color) return `Farbschema "${color.label}"`;
+  const shape = SHAPES.find((s) => s.unlockLevel === level);
+  if (shape) return `Form "${shape.label}"`;
+  return null;
+}
+
+export function WinnerOverlay({ winner, reason, mode, localPlayer, campaignLevel, onRematch, onMenu }: WinnerOverlayProps) {
   if (!reason) return null;
 
+  const isCampaign = mode === 'campaign';
   let headline: string;
   let variant: 'win' | 'lose' | 'draw' = 'draw';
+  let unlock: string | null = null;
+
   if (reason === 'draw') {
-    headline = 'Unentschieden!';
+    headline = isCampaign ? `Unentschieden — Level ${campaignLevel} nochmal!` : 'Unentschieden!';
   } else if (winner) {
-    const isLocalWinner = (mode === 'bot' || mode === 'online') && winner === localPlayer;
-    const isLocalLoser = (mode === 'bot' || mode === 'online') && winner !== localPlayer;
+    const isLocalWinner = (mode === 'bot' || mode === 'online' || mode === 'campaign') && winner === localPlayer;
+    const isLocalLoser = (mode === 'bot' || mode === 'online' || mode === 'campaign') && winner !== localPlayer;
     if (isLocalWinner) {
-      headline = 'Du gewinnst! 🎉';
       variant = 'win';
+      if (isCampaign) {
+        headline = campaignLevel >= CAMPAIGN_MAX_LEVEL ? 'Alle 100 Level gemeistert! 🏆' : `Level ${campaignLevel} geschafft! 🎉`;
+        unlock = unlockedAt(campaignLevel + 1);
+      } else {
+        headline = 'Du gewinnst! 🎉';
+      }
     } else if (isLocalLoser) {
-      headline = 'Verloren';
+      headline = isCampaign ? `Verloren — Level ${campaignLevel} nochmal versuchen` : 'Verloren';
       variant = 'lose';
     } else {
       headline = `Spieler ${winner} gewinnt!`;
@@ -48,19 +68,25 @@ export function WinnerOverlay({ winner, reason, mode, localPlayer, onRematch, on
   }
 
   const detail = reasonLabel(reason);
+  const rematchLabel = isCampaign
+    ? variant === 'win' && campaignLevel < CAMPAIGN_MAX_LEVEL
+      ? `Level ${campaignLevel + 1} →`
+      : `Level ${campaignLevel} wiederholen`
+    : 'Rematch';
 
   return (
     <div className="overlay">
       <div className={`overlay-card overlay-${variant}`}>
         <h2>{headline}</h2>
         {detail && <p className="overlay-detail">{detail}</p>}
+        {unlock && <p className="overlay-unlock">🔓 Neu freigeschaltet: {unlock}</p>}
         <div className="overlay-actions">
           {reason !== 'opponent-left' && (
-            <button className="primary-btn" onClick={onRematch}>
-              Rematch
+            <button className="primary-btn" onClick={() => { audio.playClick(); onRematch(); }}>
+              {rematchLabel}
             </button>
           )}
-          <button className="primary-btn secondary" onClick={onMenu}>
+          <button className="primary-btn secondary" onClick={() => { audio.playClick(); onMenu(); }}>
             Hauptmenü
           </button>
         </div>

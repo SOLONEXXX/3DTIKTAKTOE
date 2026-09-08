@@ -77,6 +77,39 @@ export function GlobeIcon({ className }: IconProps) {
   );
 }
 
+export function LockIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="11" y="22" width="26" height="18" rx="4" stroke="currentColor" strokeWidth="2.5" />
+      <path d="M17 22 V15 a7 7 0 0 1 14 0 v7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="24" cy="30" r="2.6" fill="currentColor" />
+      <path d="M24 32.6 V36" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function TrophyIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M15 8 H33 V20 a9 9 0 0 1 -18 0 Z" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round" />
+      <path d="M15 11 H8 a1 1 0 0 0 -1 1 v2 a7 7 0 0 0 7 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M33 11 H40 a1 1 0 0 1 1 1 v2 a7 7 0 0 1 -7 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M24 29 V35" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M16 41 H32 M16 41 Q16 36 24 35 Q32 36 32 41" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function SoundIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6 19 H14 L24 10 V38 L14 29 H6 Z" fill="currentColor" />
+      <path d="M31 16 Q37 24 31 32" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
+      <path d="M35 10 Q45 24 35 38" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" opacity="0.6" />
+    </svg>
+  );
+}
+
 export function BackIcon({ className }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

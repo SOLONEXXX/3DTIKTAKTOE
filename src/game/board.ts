@@ -87,14 +87,15 @@ export function checkWinner(board: Board, size: BoardSize): WinResult | null {
   return null;
 }
 
-export function isBoardFull(board: Board): boolean {
-  return board.every((cell) => cell !== null);
+export function isBoardFull(board: Board, blocked?: ReadonlySet<number>): boolean {
+  if (!blocked || blocked.size === 0) return board.every((cell) => cell !== null);
+  return board.every((cell, i) => cell !== null || blocked.has(i));
 }
 
-export function getEmptyIndices(board: Board): number[] {
+export function getEmptyIndices(board: Board, blocked?: ReadonlySet<number>): number[] {
   const empties: number[] = [];
   for (let i = 0; i < board.length; i++) {
-    if (board[i] === null) empties.push(i);
+    if (board[i] === null && !blocked?.has(i)) empties.push(i);
   }
   return empties;
 }

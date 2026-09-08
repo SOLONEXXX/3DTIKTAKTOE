@@ -7,13 +7,16 @@ interface ClockDisplayProps {
   label: string;
   active: boolean;
   low: boolean;
+  color: string;
 }
 
-export function ClockDisplay({ player, remainingMs, label, active, low }: ClockDisplayProps) {
+export function ClockDisplay({ player, remainingMs, label, active, low, color }: ClockDisplayProps) {
   return (
     <div className={`clock clock-${player.toLowerCase()} ${active ? 'clock-active' : ''} ${low ? 'clock-low' : ''}`}>
       <span className="clock-label">{label}</span>
-      <span className="clock-time">{formatClock(remainingMs)}</span>
+      <span className="clock-time" style={low && active ? undefined : { color }}>
+        {formatClock(remainingMs)}
+      </span>
     </div>
   );
 }

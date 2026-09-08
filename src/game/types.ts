@@ -12,12 +12,25 @@ export interface WinResult {
   line: number[];
 }
 
-export type GameMode = 'bot' | 'local' | 'online';
+export type GameMode = 'bot' | 'local' | 'online' | 'campaign';
 
 /** Bot strength as a percentage: 1 = near-random, 100 = unbeatable. */
 export type Difficulty = number;
 
-export type BackgroundTheme = 'nebula' | 'ocean' | 'sunset' | 'starfield' | 'void';
+export type BackgroundTheme =
+  | 'nebula'
+  | 'ocean'
+  | 'sunset'
+  | 'starfield'
+  | 'void'
+  | 'aurora'
+  | 'matrix'
+  | 'lava'
+  | 'crystal';
+
+export type MarkerColorTheme = 'classic' | 'sunsetColors' | 'toxic' | 'monochrome' | 'gold';
+
+export type MarkerShape = 'cube' | 'orb' | 'diamond' | 'pyramid' | 'figures';
 
 export interface TimeControl {
   /** starting time per player, in milliseconds */

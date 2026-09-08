@@ -6,6 +6,7 @@ export interface AiRequest {
   size: BoardSize;
   player: Player;
   difficulty: Difficulty;
+  blockedCells: number[];
   requestId: number;
 }
 
@@ -15,8 +16,9 @@ export interface AiResponse {
 }
 
 self.onmessage = (event: MessageEvent<AiRequest>) => {
-  const { board, size, player, difficulty, requestId } = event.data;
-  const index = getBotMove(board, size, player, difficulty);
+  const { board, size, player, difficulty, blockedCells, requestId } = event.data;
+  const blocked = blockedCells.length > 0 ? new Set(blockedCells) : undefined;
+  const index = getBotMove(board, size, player, difficulty, blocked);
   const response: AiResponse = { index, requestId };
   (self as unknown as Worker).postMessage(response);
 };
