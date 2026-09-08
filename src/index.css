@@ -1,0 +1,42 @@
+:root {
+  color-scheme: dark;
+  --bg: #0b0e1a;
+  --bg-elevated: #131a2e;
+  --panel: #171f36;
+  --border: #2a3454;
+  --text: #eef1fb;
+  --text-dim: #93a0c4;
+  --accent: #6d8dff;
+  --accent-strong: #8fa5ff;
+  --x-color: #ff5d73;
+  --o-color: #4fc3ff;
+  --danger: #ff6b6b;
+  --gold: #ffd35c;
+
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+
+#root {
+  height: 100dvh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+button {
+  font-family: inherit;
+}
