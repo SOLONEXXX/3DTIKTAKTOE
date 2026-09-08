@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { useGameStore } from './game/store';
+import { trackForScreen, useGameStore } from './game/store';
+import { audio } from './game/audio';
 import { HomeScreen } from './components/HomeScreen';
 import { SettingsScreen } from './components/SettingsScreen';
 import { CosmeticsScreen } from './components/CosmeticsScreen';
@@ -18,6 +19,17 @@ function App() {
     const interval = window.setInterval(() => tick(), 200);
     return () => window.clearInterval(interval);
   }, [tick]);
+
+  useEffect(() => {
+    // Browsers only allow audio once a real user gesture has happened — kick off
+    // the context-appropriate music track on the very first tap anywhere in the app.
+    const startOnFirstInteraction = () => {
+      const state = useGameStore.getState();
+      audio.playTrack(trackForScreen(state.screen, state.mode));
+    };
+    window.addEventListener('pointerdown', startOnFirstInteraction, { once: true });
+    return () => window.removeEventListener('pointerdown', startOnFirstInteraction);
+  }, []);
 
   return (
     <div className="app-shell">

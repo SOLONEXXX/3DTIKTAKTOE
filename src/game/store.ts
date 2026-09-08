@@ -3,7 +3,7 @@ import { applyMove, checkWinner, createBoard, isBoardFull, otherPlayer } from '.
 import { requestBotMove } from './aiClient';
 import { botMoveDelayMs } from './ai';
 import { campaignBlockedCells, campaignDifficulty, CAMPAIGN_BOARD_SIZE } from './campaign';
-import { audio } from './audio';
+import { audio, type MusicTrack } from './audio';
 import {
   createClockState,
   hasTimedOut,
@@ -28,6 +28,12 @@ import type {
 
 export type Screen = 'home' | 'settings' | 'cosmetics' | 'app-settings' | 'campaign' | 'lobby' | 'game';
 export type GameOverReason = 'line' | 'draw' | 'timeout' | 'resign' | 'opponent-left' | null;
+
+export function trackForScreen(screen: Screen, mode: GameMode): MusicTrack {
+  if (screen === 'lobby') return 'lobby';
+  if (screen === 'game') return mode === 'campaign' ? 'campaign' : 'match';
+  return 'menu';
+}
 
 export function timeControlFromIndex(index: number): TimeControl {
   return TIME_PRESETS[index].timeControl;
@@ -214,17 +220,29 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   goHome: () => {
     get().online.session?.destroy();
-    audio.stopMusic();
+    audio.playTrack('menu');
     set({
       screen: 'home',
       online: { session: null, status: 'idle', roomCode: null, isHost: false },
     });
   },
 
-  goToSettings: () => set({ screen: 'settings' }),
-  goToCosmetics: () => set({ screen: 'cosmetics' }),
-  goToAppSettings: () => set({ screen: 'app-settings' }),
-  goToCampaign: () => set({ screen: 'campaign' }),
+  goToSettings: () => {
+    audio.playTrack('menu');
+    set({ screen: 'settings' });
+  },
+  goToCosmetics: () => {
+    audio.playTrack('menu');
+    set({ screen: 'cosmetics' });
+  },
+  goToAppSettings: () => {
+    audio.playTrack('menu');
+    set({ screen: 'app-settings' });
+  },
+  goToCampaign: () => {
+    audio.playTrack('menu');
+    set({ screen: 'campaign' });
+  },
 
   setSize: (size) => {
     saveSettings({ size });
@@ -284,6 +302,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const state = get();
     const timeControl = timeControlFromIndex(state.timeControlIndex);
     if (state.mode === 'online') {
+      audio.playTrack('lobby');
       set({ screen: 'lobby' });
     } else if (state.mode === 'bot') {
       state.startBotGame(state.size, state.difficulty, timeControl);
@@ -293,7 +312,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   startLocalGame: (size, timeControl) => {
-    audio.startMusic();
+    audio.playTrack('match');
     set((s) => ({
       screen: 'game',
       mode: 'local',
@@ -314,7 +333,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   startBotGame: (size, difficulty, timeControl) => {
-    audio.startMusic();
+    audio.playTrack('match');
     set((s) => ({
       screen: 'game',
       mode: 'bot',
@@ -341,7 +360,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const size = CAMPAIGN_BOARD_SIZE;
     const difficulty = campaignDifficulty(targetLevel);
     const blocked = campaignBlockedCells(targetLevel, size);
-    audio.startMusic();
+    audio.playTrack('campaign');
     set((s) => ({
       screen: 'game',
       mode: 'campaign',
@@ -363,7 +382,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     }));
   },
 
-  openOnlineLobby: () => set({ screen: 'lobby' }),
+  openOnlineLobby: () => {
+    audio.playTrack('lobby');
+    set({ screen: 'lobby' });
+  },
 
   startOnlineHost: async (size, timeControl) => {
     const session = new MultiplayerSession({
@@ -372,7 +394,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         if (status === 'connected') {
           const hostPlayer: Player = Math.random() < 0.5 ? 'X' : 'O';
           session.send({ type: 'init', hostPlayer, size, timeControl });
-          audio.startMusic();
+          audio.playTrack('match');
           set((s) => ({
             screen: 'game',
             mode: 'online',
@@ -419,7 +441,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   leaveOnline: () => {
     get().online.session?.send({ type: 'resign', player: get().localPlayer });
     get().online.session?.destroy();
-    audio.stopMusic();
+    audio.playTrack('menu');
     set({
       screen: 'home',
       online: { session: null, status: 'idle', roomCode: null, isHost: false },
@@ -560,7 +582,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   __handleNetMessage: (message: NetMessage) => {
     const state = get();
     if (message.type === 'init') {
-      audio.startMusic();
+      audio.playTrack('match');
       set({
         mode: 'online',
         size: message.size,
