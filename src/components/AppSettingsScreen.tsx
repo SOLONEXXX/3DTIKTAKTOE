@@ -36,6 +36,7 @@ export function AppSettingsScreen() {
             maxLength={20}
             placeholder="Dein Name"
             onChange={(e) => setPlayerName(e.target.value)}
+            onBlur={(e) => { if (!e.target.value.trim()) setPlayerName('Spieler'); }}
           />
           <p className="field-hint">Erscheint im Scoreboard des Level-Modus.</p>
         </section>

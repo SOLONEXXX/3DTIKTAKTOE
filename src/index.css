@@ -1,19 +1,29 @@
 :root {
   color-scheme: dark;
-  --bg: #0b0e1a;
-  --bg-elevated: #131a2e;
-  --panel: #171f36;
-  --border: #2a3454;
-  --text: #eef1fb;
-  --text-dim: #93a0c4;
+  --bg: #07080f;
+  --bg-elevated: #121423;
+  --panel: #151830;
+  --panel-hi: #1b2040;
+  --border: #333a63;
+  --text: #f1f3fc;
+  --text-dim: #8d96bd;
   --accent: #6d8dff;
-  --accent-strong: #8fa5ff;
+  --accent-strong: #9fb3ff;
+  --accent2: #ff3fd0;
   --x-color: #ff5d73;
   --o-color: #4fc3ff;
   --danger: #ff6b6b;
   --gold: #ffd35c;
 
-  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Orbitron', 'Segoe UI', sans-serif;
+  --font-ui: 'Sora', system-ui, 'Segoe UI', sans-serif;
+  --font-hud: 'Rajdhani', 'Segoe UI', sans-serif;
+
+  --cut: 14px;
+  --cut-sm: 9px;
+  --chamfer: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+
+  font-family: var(--font-ui);
 }
 
 * {
@@ -31,6 +41,13 @@ body {
   touch-action: manipulation;
 }
 
+body {
+  background-image: radial-gradient(circle at 15% -10%, rgba(109, 141, 255, 0.14), transparent 45%),
+    radial-gradient(circle at 100% 10%, rgba(255, 63, 208, 0.09), transparent 40%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.014) 0px, rgba(255, 255, 255, 0.014) 1px, transparent 1px, transparent 3px);
+  background-attachment: fixed;
+}
+
 #root {
   height: 100dvh;
   width: 100vw;
@@ -39,4 +56,21 @@ body {
 
 button {
   font-family: inherit;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-ui);
+}
+
+/* Angular "cut-corner" panel shape used across cards, tiles and buttons for a
+   distinct HUD look instead of uniform rounded rectangles. */
+.cut-corners {
+  border-radius: 0;
+  clip-path: var(--chamfer);
+}
+
+.cut-corners.cut-sm {
+  --cut: var(--cut-sm);
 }

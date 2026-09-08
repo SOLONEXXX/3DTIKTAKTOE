@@ -26,11 +26,29 @@ export type BackgroundTheme =
   | 'aurora'
   | 'matrix'
   | 'lava'
-  | 'crystal';
+  | 'crystal'
+  | 'sakura'
+  | 'desert'
+  | 'abyss'
+  | 'plasma'
+  | 'frost'
+  | 'copper';
 
-export type MarkerColorTheme = 'classic' | 'sunsetColors' | 'toxic' | 'monochrome' | 'gold';
+export type MarkerColorTheme =
+  | 'classic'
+  | 'sunsetColors'
+  | 'toxic'
+  | 'monochrome'
+  | 'gold'
+  | 'neon'
+  | 'ice'
+  | 'inferno'
+  | 'forest'
+  | 'royal'
+  | 'candy'
+  | 'obsidian';
 
-export type MarkerShape = 'cube' | 'orb' | 'diamond' | 'pyramid' | 'figures';
+export type MarkerShape = 'cube' | 'orb' | 'diamond' | 'pyramid' | 'figures' | 'prism' | 'star' | 'ring';
 
 export interface TimeControl {
   /** starting time per player, in milliseconds */

@@ -1,5 +1,5 @@
 import Peer, { type DataConnection } from 'peerjs';
-import type { BoardSize, Player, TimeControl } from './types';
+import type { BoardSize, MarkerShape, Player, TimeControl } from './types';
 
 const ROOM_PREFIX = 'ttt3d-';
 const ROOM_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous chars
@@ -18,6 +18,7 @@ export type NetMessage =
   | { type: 'resign'; player: Player }
   | { type: 'rematch-offer' }
   | { type: 'rematch-accept' }
+  | { type: 'cosmetics'; color: string; shape: MarkerShape }
   | { type: 'ping' };
 
 export type ConnectionStatus =

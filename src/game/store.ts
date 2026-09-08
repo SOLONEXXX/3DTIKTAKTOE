@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { applyMove, checkWinner, createBoard, isBoardFull, otherPlayer } from './board';
 import { requestBotMove } from './aiClient';
 import { botMoveDelayMs } from './ai';
-import { campaignBlockedCells, campaignDifficulty, CAMPAIGN_BOARD_SIZE } from './campaign';
+import { campaignBlockedCells, campaignDifficulty } from './campaign';
 import { audio, type MusicTrack } from './audio';
 import {
   createClockState,
@@ -64,7 +64,10 @@ interface PersistedSettings {
   musicEnabled: boolean;
   sfxEnabled: boolean;
   playerName: string;
-  campaignLevel: number;
+  campaignLevel3: number;
+  campaignLevel4: number;
+  campaignBoardSize: BoardSize;
+  onlineMyColor: string;
 }
 
 function loadSettings(): Partial<PersistedSettings> {
@@ -94,6 +97,8 @@ interface OnlineState {
   roomCode: string | null;
   isHost: boolean;
   statusDetail?: string;
+  opponentColor: string | null;
+  opponentShape: MarkerShape | null;
 }
 
 interface GameState {
@@ -110,10 +115,15 @@ interface GameState {
   musicEnabled: boolean;
   sfxEnabled: boolean;
   playerName: string;
-  /** Persisted resume point / high-water mark — advances the instant a campaign win lands. */
-  campaignLevel: number;
+  /** Persisted resume point / high-water mark per board size — advances the instant a campaign win lands. */
+  campaignLevel3: number;
+  campaignLevel4: number;
+  /** Which campaign track is selected on the Level-Modus intro screen. */
+  campaignBoardSize: BoardSize;
   /** The level number actually shown on the current game screen, stable until the next startCampaignLevel. */
   campaignLevelInPlay: number;
+  /** Single personal color for online play, independent of the X/O paired theme used elsewhere. */
+  onlineMyColor: string;
   activeTimeControl: TimeControl;
   board: Board;
   blockedCells: Set<number>;
@@ -146,10 +156,12 @@ interface GameState {
   setMusicEnabled: (enabled: boolean) => void;
   setSfxEnabled: (enabled: boolean) => void;
   setPlayerName: (name: string) => void;
+  setCampaignBoardSize: (size: BoardSize) => void;
+  setOnlineMyColor: (color: string) => void;
   playNow: () => void;
   startLocalGame: (size: BoardSize, timeControl: TimeControl) => void;
   startBotGame: (size: BoardSize, difficulty: Difficulty, timeControl: TimeControl) => void;
-  startCampaignLevel: (level?: number) => void;
+  startCampaignLevel: (level?: number, size?: BoardSize) => void;
   openOnlineLobby: () => void;
   startOnlineHost: (size: BoardSize, timeControl: TimeControl) => Promise<string>;
   startOnlineJoin: (code: string) => Promise<void>;
@@ -202,8 +214,11 @@ export const useGameStore = create<GameState>((set, get) => ({
   musicEnabled: persisted.musicEnabled ?? true,
   sfxEnabled: persisted.sfxEnabled ?? true,
   playerName: persisted.playerName ?? 'Spieler',
-  campaignLevel: persisted.campaignLevel ?? 1,
-  campaignLevelInPlay: persisted.campaignLevel ?? 1,
+  campaignLevel3: persisted.campaignLevel3 ?? 1,
+  campaignLevel4: persisted.campaignLevel4 ?? 1,
+  campaignBoardSize: persisted.campaignBoardSize ?? 4,
+  campaignLevelInPlay: 1,
+  onlineMyColor: persisted.onlineMyColor ?? '#ff4757',
   activeTimeControl: timeControlFromIndex(persisted.timeControlIndex ?? DEFAULT_TIME_CONTROL_INDEX),
   board: createBoard(persisted.size ?? 4),
   blockedCells: EMPTY_BLOCKED as Set<number>,
@@ -216,14 +231,14 @@ export const useGameStore = create<GameState>((set, get) => ({
   moveCount: 0,
   lastMoveIndex: null,
   gameGeneration: 0,
-  online: { session: null, status: 'idle', roomCode: null, isHost: false },
+  online: { session: null, status: 'idle', roomCode: null, isHost: false, opponentColor: null, opponentShape: null },
 
   goHome: () => {
     get().online.session?.destroy();
     audio.playTrack('menu');
     set({
       screen: 'home',
-      online: { session: null, status: 'idle', roomCode: null, isHost: false },
+      online: { session: null, status: 'idle', roomCode: null, isHost: false, opponentColor: null, opponentShape: null },
     });
   },
 
@@ -293,9 +308,20 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ sfxEnabled });
   },
   setPlayerName: (playerName) => {
-    const trimmed = playerName.trim().slice(0, 20) || 'Spieler';
-    saveSettings({ playerName: trimmed });
-    set({ playerName: trimmed });
+    // Allow an empty/whitespace value while the user is actively editing the field —
+    // forcing an immediate fallback to 'Spieler' here made the trailing "S" undeletable.
+    // The fallback is applied on blur instead (see AppSettingsScreen).
+    const next = playerName.slice(0, 20);
+    saveSettings({ playerName: next });
+    set({ playerName: next });
+  },
+  setCampaignBoardSize: (campaignBoardSize) => {
+    saveSettings({ campaignBoardSize });
+    set({ campaignBoardSize });
+  },
+  setOnlineMyColor: (onlineMyColor) => {
+    saveSettings({ onlineMyColor });
+    set({ onlineMyColor });
   },
 
   playNow: () => {
@@ -354,21 +380,22 @@ export const useGameStore = create<GameState>((set, get) => ({
     }));
   },
 
-  startCampaignLevel: (level) => {
+  startCampaignLevel: (level, size) => {
     const state = get();
-    const targetLevel = level ?? state.campaignLevel;
-    const size = CAMPAIGN_BOARD_SIZE;
+    const targetSize = size ?? state.campaignBoardSize;
+    const targetLevel = level ?? (targetSize === 3 ? state.campaignLevel3 : state.campaignLevel4);
     const difficulty = campaignDifficulty(targetLevel);
-    const blocked = campaignBlockedCells(targetLevel, size);
+    const blocked = campaignBlockedCells(targetLevel, targetSize);
     audio.playTrack('campaign');
     set((s) => ({
       screen: 'game',
       mode: 'campaign',
-      size,
+      size: targetSize,
+      campaignBoardSize: targetSize,
       difficulty,
       campaignLevelInPlay: targetLevel,
       activeTimeControl: UNLIMITED_TIME_CONTROL,
-      board: createBoard(size),
+      board: createBoard(targetSize),
       blockedCells: blocked,
       turn: 'X',
       localPlayer: 'X',
@@ -394,6 +421,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         if (status === 'connected') {
           const hostPlayer: Player = Math.random() < 0.5 ? 'X' : 'O';
           session.send({ type: 'init', hostPlayer, size, timeControl });
+          const s0 = get();
+          session.send({ type: 'cosmetics', color: s0.onlineMyColor, shape: s0.markerShape });
           audio.playTrack('match');
           set((s) => ({
             screen: 'game',
@@ -418,7 +447,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       },
       onMessage: (message) => get().__handleNetMessage(message as NetMessage),
     });
-    set({ online: { session, status: 'waiting-for-peer', roomCode: null, isHost: true } });
+    set({ online: { session, status: 'waiting-for-peer', roomCode: null, isHost: true, opponentColor: null, opponentShape: null } });
     const code = await session.hostGame();
     set((s) => ({ online: { ...s.online, roomCode: code } }));
     return code;
@@ -434,7 +463,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       },
       onMessage: (message) => get().__handleNetMessage(message as NetMessage),
     });
-    set({ online: { session, status: 'connecting', roomCode: code, isHost: false } });
+    set({ online: { session, status: 'connecting', roomCode: code, isHost: false, opponentColor: null, opponentShape: null } });
     await session.joinGame(code);
   },
 
@@ -444,7 +473,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     audio.playTrack('menu');
     set({
       screen: 'home',
-      online: { session: null, status: 'idle', roomCode: null, isHost: false },
+      online: { session: null, status: 'idle', roomCode: null, isHost: false, opponentColor: null, opponentShape: null },
     });
   },
 
@@ -493,9 +522,15 @@ export const useGameStore = create<GameState>((set, get) => ({
         else audio.playLose();
       }
       if (state.mode === 'campaign' && winner && winner.winner === state.localPlayer) {
-        const nextLevel = state.campaignLevel + 1;
-        saveSettings({ campaignLevel: nextLevel });
-        set({ campaignLevel: nextLevel });
+        if (state.size === 3) {
+          const nextLevel = state.campaignLevel3 + 1;
+          saveSettings({ campaignLevel3: nextLevel });
+          set({ campaignLevel3: nextLevel });
+        } else {
+          const nextLevel = state.campaignLevel4 + 1;
+          saveSettings({ campaignLevel4: nextLevel });
+          set({ campaignLevel4: nextLevel });
+        }
       }
       return;
     }
@@ -535,7 +570,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   rematch: () => {
     const state = get();
     if (state.mode === 'campaign') {
-      state.startCampaignLevel(state.campaignLevel);
+      state.startCampaignLevel(undefined, state.size);
       return;
     }
     set((s) => ({
@@ -599,6 +634,9 @@ export const useGameStore = create<GameState>((set, get) => ({
         clock: startClock(createClockState(message.timeControl), 'X', Date.now()),
         gameGeneration: state.gameGeneration + 1,
       });
+      state.online.session?.send({ type: 'cosmetics', color: state.onlineMyColor, shape: state.markerShape });
+    } else if (message.type === 'cosmetics') {
+      set((s) => ({ online: { ...s.online, opponentColor: message.color, opponentShape: message.shape } }));
     } else if (message.type === 'move') {
       const board = applyMove(state.board, message.index, message.player);
       const next = otherPlayer(message.player);

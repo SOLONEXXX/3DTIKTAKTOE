@@ -5,7 +5,7 @@ import { audio } from '../game/audio';
 import { Scene } from '../three/Scene';
 import { ClockDisplay } from './ClockDisplay';
 import { WinnerOverlay } from './WinnerOverlay';
-import { BackIcon } from './icons';
+import { BackIcon, MenuIcon } from './icons';
 import { colorThemeDef } from '../game/cosmetics';
 import type { Player } from '../game/types';
 
@@ -37,14 +37,18 @@ export function GameScreen({ onExit }: GameScreenProps) {
   const blockedCells = useGameStore((s) => s.blockedCells);
   const markerColorTheme = useGameStore((s) => s.markerColorTheme);
   const markerShape = useGameStore((s) => s.markerShape);
+  const onlineMyColor = useGameStore((s) => s.onlineMyColor);
   const campaignLevelInPlay = useGameStore((s) => s.campaignLevelInPlay);
+  const gameGeneration = useGameStore((s) => s.gameGeneration);
   const placeMark = useGameStore((s) => s.placeMark);
   const resign = useGameStore((s) => s.resign);
+  const rematch = useGameStore((s) => s.rematch);
   const requestRematch = useGameStore((s) => s.requestRematch);
   const goHome = useGameStore((s) => s.goHome);
 
   const [focusedLayer, setFocusedLayer] = useState<number | null>(null);
   const [showOutcomeFx, setShowOutcomeFx] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     if (gameOverReason) {
@@ -83,6 +87,12 @@ export function GameScreen({ onExit }: GameScreenProps) {
   const topPlayer: Player = mode === 'local' ? 'O' : otherOf(localPlayer);
   const bottomPlayer: Player = mode === 'local' ? 'X' : localPlayer;
   const theme = colorThemeDef(markerColorTheme);
+  const isOnline = mode === 'online';
+  const isCampaign = mode === 'campaign';
+  const xColor = isOnline ? (localPlayer === 'X' ? onlineMyColor : online.opponentColor ?? theme.xColor) : theme.xColor;
+  const oColor = isOnline ? (localPlayer === 'O' ? onlineMyColor : online.opponentColor ?? theme.oColor) : theme.oColor;
+  const xShape = isOnline ? (localPlayer === 'X' ? markerShape : online.opponentShape ?? markerShape) : markerShape;
+  const oShape = isOnline ? (localPlayer === 'O' ? markerShape : online.opponentShape ?? markerShape) : markerShape;
 
   const outcomeClass = useMemo(() => {
     if (!gameOverReason || !showOutcomeFx) return '';
@@ -94,30 +104,70 @@ export function GameScreen({ onExit }: GameScreenProps) {
 
   return (
     <div className={`screen game-screen ${outcomeClass}`}>
-      <div className="game-topbar">
-        <button className="icon-btn" onClick={() => { audio.playClick(); onExit(); }} aria-label="Zurück zum Menü">
-          <BackIcon className="icon-btn-svg" />
-        </button>
-        <span className="status-text">{statusText}</span>
-        {mode === 'online' && online.roomCode && <span className="room-code-badge">{online.roomCode}</span>}
-        {mode === 'campaign' && <span className="room-code-badge">Level {campaignLevelInPlay}</span>}
-        {mode !== 'online' && !gameOverReason && (
-          <button className="icon-btn text-btn" onClick={() => { audio.playClick(); resign(); }}>
-            Aufgeben
+      {isCampaign ? (
+        <div className="game-topbar game-topbar-campaign">
+          <span className="campaign-level-badge">Level {campaignLevelInPlay}</span>
+          <div className="topbar-menu-anchor">
+            <button
+              className="icon-btn"
+              onClick={() => { audio.playClick(); setMenuOpen((v) => !v); }}
+              aria-label="Menü"
+            >
+              <MenuIcon className="icon-btn-svg" />
+            </button>
+            {menuOpen && (
+              <div className="topbar-menu">
+                <button
+                  className="topbar-menu-item"
+                  onClick={() => { audio.playClick(); setMenuOpen(false); rematch(); }}
+                >
+                  Level neu starten
+                </button>
+                {!gameOverReason && (
+                  <button
+                    className="topbar-menu-item"
+                    onClick={() => { audio.playClick(); setMenuOpen(false); resign(); }}
+                  >
+                    Aufgeben
+                  </button>
+                )}
+                <button
+                  className="topbar-menu-item"
+                  onClick={() => { audio.playClick(); setMenuOpen(false); goHome(); }}
+                >
+                  Hauptmenü
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="game-topbar">
+          <button className="icon-btn" onClick={() => { audio.playClick(); onExit(); }} aria-label="Zurück zum Menü">
+            <BackIcon className="icon-btn-svg" />
           </button>
-        )}
-      </div>
+          <span className="status-text">{statusText}</span>
+          {mode === 'online' && online.roomCode && <span className="room-code-badge">{online.roomCode}</span>}
+          {mode !== 'online' && !gameOverReason && (
+            <button className="icon-btn text-btn" onClick={() => { audio.playClick(); resign(); }}>
+              Aufgeben
+            </button>
+          )}
+        </div>
+      )}
 
-      <ClockDisplay
-        player={topPlayer}
-        remainingMs={clock.remainingMs[topPlayer]}
-        label={playerLabel(topPlayer, mode, localPlayer)}
-        active={clock.runningFor === topPlayer}
-        low={clock.remainingMs[topPlayer] <= LOW_TIME_MS}
-        color={topPlayer === 'X' ? theme.xColor : theme.oColor}
-      />
+      {!isCampaign && (
+        <ClockDisplay
+          player={topPlayer}
+          remainingMs={clock.remainingMs[topPlayer]}
+          label={playerLabel(topPlayer, mode, localPlayer)}
+          active={clock.runningFor === topPlayer}
+          low={clock.remainingMs[topPlayer] <= LOW_TIME_MS}
+          color={topPlayer === 'X' ? xColor : oColor}
+        />
+      )}
 
-      <div className={`scene-wrapper bg-${background}`}>
+      <div className={`scene-wrapper bg-${background} ${isCampaign ? 'scene-wrapper-campaign' : ''}`}>
         <Scene
           board={board}
           size={size}
@@ -125,20 +175,25 @@ export function GameScreen({ onExit }: GameScreenProps) {
           focusedLayer={focusedLayer}
           interactive={myTurn}
           blockedCells={blockedCells}
-          colorTheme={markerColorTheme}
-          shape={markerShape}
+          xColor={xColor}
+          oColor={oColor}
+          xShape={xShape}
+          oShape={oShape}
+          gameGeneration={gameGeneration}
           onTap={placeMark}
         />
       </div>
 
-      <ClockDisplay
-        player={bottomPlayer}
-        remainingMs={clock.remainingMs[bottomPlayer]}
-        label={playerLabel(bottomPlayer, mode, localPlayer)}
-        active={clock.runningFor === bottomPlayer}
-        low={clock.remainingMs[bottomPlayer] <= LOW_TIME_MS}
-        color={bottomPlayer === 'X' ? theme.xColor : theme.oColor}
-      />
+      {!isCampaign && (
+        <ClockDisplay
+          player={bottomPlayer}
+          remainingMs={clock.remainingMs[bottomPlayer]}
+          label={playerLabel(bottomPlayer, mode, localPlayer)}
+          active={clock.runningFor === bottomPlayer}
+          low={clock.remainingMs[bottomPlayer] <= LOW_TIME_MS}
+          color={bottomPlayer === 'X' ? xColor : oColor}
+        />
+      )}
 
       <div className="layer-selector">
         <button className={`layer-btn ${focusedLayer === null ? 'selected' : ''}`} onClick={() => { audio.playClick(); setFocusedLayer(null); }}>

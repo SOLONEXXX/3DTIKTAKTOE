@@ -2,19 +2,17 @@ import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { RoundedBox } from '@react-three/drei';
 import type { Group } from 'three';
-import type { MarkerColorTheme, MarkerShape, Player } from '../game/types';
-import { colorThemeDef } from '../game/cosmetics';
+import type { MarkerShape } from '../game/types';
 import { FigureMarker } from './FigureMarker';
 
 const POP_DURATION = 0.32;
 
 interface MarkerBlockProps {
-  player: Player;
+  color: string;
   size?: number;
   opacity?: number;
   highlighted?: boolean;
   animate?: boolean;
-  colorTheme?: MarkerColorTheme;
   shape?: MarkerShape;
 }
 
@@ -26,21 +24,19 @@ function ShapeGeometry({ shape, size }: { shape: MarkerShape; size: number }) {
       return <octahedronGeometry args={[size * 0.62, 0]} />;
     case 'pyramid':
       return <coneGeometry args={[size * 0.58, size * 0.85, 4]} />;
+    case 'prism':
+      return <cylinderGeometry args={[size * 0.6, size * 0.6, size * 0.75, 3]} />;
+    case 'ring':
+      return <torusGeometry args={[size * 0.42, size * 0.19, 16, 32]} />;
+    case 'star':
+      return <icosahedronGeometry args={[size * 0.58, 0]} />;
     case 'cube':
     default:
       return <boxGeometry args={[size, size, size]} />;
   }
 }
 
-export function MarkerBlock({
-  player,
-  size = 0.62,
-  opacity = 1,
-  highlighted = false,
-  animate = true,
-  colorTheme = 'classic',
-  shape = 'cube',
-}: MarkerBlockProps) {
+export function MarkerBlock({ color, size = 0.62, opacity = 1, highlighted = false, animate = true, shape = 'cube' }: MarkerBlockProps) {
   const groupRef = useRef<Group>(null);
   const elapsed = useRef(0);
   const done = useRef(!animate);
@@ -59,8 +55,6 @@ export function MarkerBlock({
     }
   });
 
-  const theme = colorThemeDef(colorTheme);
-  const color = player === 'X' ? theme.xColor : theme.oColor;
   const transparent = opacity < 1;
   const emissiveIntensity = highlighted ? 1.3 : 0.55;
 
@@ -71,6 +65,13 @@ export function MarkerBlock({
       </group>
     );
   }
+
+  const halo = highlighted && (
+    <mesh>
+      <sphereGeometry args={[size * 0.9, 16, 16]} />
+      <meshBasicMaterial color={color} transparent opacity={0.18} />
+    </mesh>
+  );
 
   if (shape === 'cube') {
     return (
@@ -86,11 +87,7 @@ export function MarkerBlock({
             opacity={opacity}
           />
         </RoundedBox>
-        {highlighted && (
-          <RoundedBox args={[size * 1.22, size * 1.22, size * 1.22]} radius={size * 0.2} smoothness={2}>
-            <meshBasicMaterial color={color} transparent opacity={0.18} />
-          </RoundedBox>
-        )}
+        {halo}
       </group>
     );
   }
@@ -109,6 +106,7 @@ export function MarkerBlock({
           opacity={opacity}
         />
       </mesh>
+      {halo}
     </group>
   );
 }

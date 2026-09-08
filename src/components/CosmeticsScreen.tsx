@@ -2,7 +2,7 @@ import { useGameStore } from '../game/store';
 import { audio } from '../game/audio';
 import { IdleCube } from '../three/IdleCube';
 import { BackIcon, LockIcon } from './icons';
-import { COLOR_THEMES, SHAPES, isColorThemeUnlocked, isShapeUnlocked } from '../game/cosmetics';
+import { COLOR_THEMES, SHAPES, SOLO_COLORS, isColorThemeUnlocked, isShapeUnlocked } from '../game/cosmetics';
 import type { BackgroundTheme } from '../game/types';
 
 const THEMES: { id: BackgroundTheme; label: string }[] = [
@@ -15,6 +15,12 @@ const THEMES: { id: BackgroundTheme; label: string }[] = [
   { id: 'lava', label: 'Lava' },
   { id: 'crystal', label: 'Kristall' },
   { id: 'void', label: 'Leere' },
+  { id: 'sakura', label: 'Sakura' },
+  { id: 'desert', label: 'Wüste' },
+  { id: 'abyss', label: 'Abgrund' },
+  { id: 'plasma', label: 'Plasma' },
+  { id: 'frost', label: 'Frost' },
+  { id: 'copper', label: 'Kupfer' },
 ];
 
 export function CosmeticsScreen() {
@@ -24,7 +30,11 @@ export function CosmeticsScreen() {
   const setMarkerColorTheme = useGameStore((s) => s.setMarkerColorTheme);
   const markerShape = useGameStore((s) => s.markerShape);
   const setMarkerShape = useGameStore((s) => s.setMarkerShape);
-  const campaignLevel = useGameStore((s) => s.campaignLevel);
+  const onlineMyColor = useGameStore((s) => s.onlineMyColor);
+  const setOnlineMyColor = useGameStore((s) => s.setOnlineMyColor);
+  const campaignLevel3 = useGameStore((s) => s.campaignLevel3);
+  const campaignLevel4 = useGameStore((s) => s.campaignLevel4);
+  const campaignLevel = Math.max(campaignLevel3, campaignLevel4);
   const goHome = useGameStore((s) => s.goHome);
 
   return (
@@ -78,6 +88,24 @@ export function CosmeticsScreen() {
                 </button>
               );
             })}
+          </div>
+        </section>
+
+        <section className="menu-section">
+          <h2>Mein Look (Mehrspieler)</h2>
+          <p className="field-hint" style={{ margin: '0 0 10px' }}>
+            Nur deine eigene Farbe im Online-Modus — unabhängig vom Farbschema und ohne Einfluss auf deinen Gegner.
+          </p>
+          <div className="solo-color-grid">
+            {SOLO_COLORS.map((c) => (
+              <button
+                key={c}
+                className={`solo-color-swatch ${onlineMyColor === c ? 'selected' : ''}`}
+                style={{ background: c }}
+                onClick={() => { audio.playClick(); setOnlineMyColor(c); }}
+                aria-label={`Meine Farbe: ${c}`}
+              />
+            ))}
           </div>
         </section>
 

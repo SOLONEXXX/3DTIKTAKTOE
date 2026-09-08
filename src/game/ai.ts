@@ -104,9 +104,9 @@ function skillOf(difficulty: Difficulty): number {
 
 function configFor(difficulty: Difficulty, size: BoardSize): DifficultyConfig {
   const skill = skillOf(difficulty);
-  const maxDepth = size === 3 ? 5 : 3;
-  const minCandidates = size === 3 ? 6 : 5;
-  const maxCandidates = size === 3 ? 18 : 12;
+  const maxDepth = size === 3 ? 5 : 4;
+  const minCandidates = size === 3 ? 6 : 6;
+  const maxCandidates = size === 3 ? 18 : 16;
 
   return {
     depth: Math.max(1, Math.round(1 + skill * (maxDepth - 1))),

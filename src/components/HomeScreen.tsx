@@ -7,7 +7,9 @@ export function HomeScreen() {
   const background = useGameStore((s) => s.background);
   const markerColorTheme = useGameStore((s) => s.markerColorTheme);
   const markerShape = useGameStore((s) => s.markerShape);
-  const campaignLevel = useGameStore((s) => s.campaignLevel);
+  const campaignLevel3 = useGameStore((s) => s.campaignLevel3);
+  const campaignLevel4 = useGameStore((s) => s.campaignLevel4);
+  const bestCampaignLevel = Math.max(campaignLevel3, campaignLevel4);
   const playNow = useGameStore((s) => s.playNow);
   const goToSettings = useGameStore((s) => s.goToSettings);
   const goToCosmetics = useGameStore((s) => s.goToCosmetics);
@@ -44,7 +46,7 @@ export function HomeScreen() {
           <button className="nav-tile" onClick={click(goToCampaign)}>
             <TrophyIcon className="nav-icon" />
             <span className="nav-label">Level-Modus</span>
-            <span className="nav-badge">Lvl {campaignLevel}</span>
+            <span className="nav-badge">Lvl {bestCampaignLevel}</span>
           </button>
           <button className="nav-tile" onClick={click(goToCosmetics)}>
             <CosmeticsIcon className="nav-icon" />

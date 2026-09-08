@@ -1,9 +1,18 @@
 import type { BoardSize } from './types';
 
 export const CAMPAIGN_MAX_LEVEL = 100;
-export const CAMPAIGN_BOARD_SIZE: BoardSize = 4;
-export const CAMPAIGN_BLOCKED_START_LEVEL = 31;
-export const CAMPAIGN_MAX_BLOCKED = 10;
+export const CAMPAIGN_SIZES: BoardSize[] = [3, 4];
+
+interface BlockedConfig {
+  startLevel: number;
+  every: number;
+  max: number;
+}
+
+const BLOCKED_CONFIG: Record<BoardSize, BlockedConfig> = {
+  3: { startLevel: 41, every: 8, max: 5 },
+  4: { startLevel: 31, every: 5, max: 10 },
+};
 
 /** Deterministic PRNG (mulberry32) so a given level always generates the same layout. */
 function mulberry32(seed: number): () => number {
@@ -25,14 +34,15 @@ export function campaignDifficulty(level: number): number {
   return Math.round(3 + eased * 97);
 }
 
-export function campaignBlockedCount(level: number): number {
-  if (level < CAMPAIGN_BLOCKED_START_LEVEL) return 0;
-  return Math.min(CAMPAIGN_MAX_BLOCKED, Math.floor((level - CAMPAIGN_BLOCKED_START_LEVEL) / 5) + 1);
+export function campaignBlockedCount(level: number, size: BoardSize): number {
+  const cfg = BLOCKED_CONFIG[size];
+  if (level < cfg.startLevel) return 0;
+  return Math.min(cfg.max, Math.floor((level - cfg.startLevel) / cfg.every) + 1);
 }
 
 /** Deterministic set of blocked cell indices for a level, avoiding the 8 body-diagonal corners. */
 export function campaignBlockedCells(level: number, size: BoardSize): Set<number> {
-  const count = campaignBlockedCount(level);
+  const count = campaignBlockedCount(level, size);
   if (count === 0) return new Set();
 
   const total = size ** 3;
@@ -45,7 +55,7 @@ export function campaignBlockedCells(level: number, size: BoardSize): Set<number
     }
   }
 
-  const rand = mulberry32(level * 104729 + 17);
+  const rand = mulberry32(level * 104729 + size * 7919 + 17);
   const candidates = Array.from({ length: total }, (_, i) => i).filter((i) => !corners.has(i));
   // Fisher-Yates shuffle with the seeded RNG for a reproducible-but-scattered layout.
   for (let i = candidates.length - 1; i > 0; i--) {

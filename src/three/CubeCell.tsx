@@ -1,6 +1,6 @@
-import { useMemo, useState, type RefObject } from 'react';
+import { useEffect, useMemo, useState, type RefObject } from 'react';
 import * as THREE from 'three';
-import type { Cell as CellValue, MarkerColorTheme, MarkerShape } from '../game/types';
+import type { Cell as CellValue, MarkerShape } from '../game/types';
 import { MarkerBlock } from './MarkerBlock';
 
 interface CubeCellProps {
@@ -11,8 +11,10 @@ interface CubeCellProps {
   interactive: boolean;
   isWinning: boolean;
   blocked: boolean;
-  colorTheme: MarkerColorTheme;
-  shape: MarkerShape;
+  xColor: string;
+  oColor: string;
+  xShape: MarkerShape;
+  oShape: MarkerShape;
   dragRef: RefObject<boolean>;
   onTap: (index: number) => void;
 }
@@ -31,12 +33,22 @@ export function CubeCell({
   interactive,
   isWinning,
   blocked,
-  colorTheme,
-  shape,
+  xColor,
+  oColor,
+  xShape,
+  oShape,
   dragRef,
   onTap,
 }: CubeCellProps) {
   const [hovered, setHovered] = useState(false);
+
+  // Touchscreens fire pointerover on tap but never a matching pointerout on lift-off,
+  // so a cell can get stuck "hovered" — most visible once the board stops being
+  // interactive (turn ends, game over) and the glow should have cleared but didn't.
+  useEffect(() => {
+    if (!interactive) setHovered(false);
+  }, [interactive]);
+
   const isHot = hovered && interactive;
   const edgeOpacity = dimmed ? 0.035 : isHot ? 0.95 : 0.42;
   const glowOpacity = dimmed ? 0 : isHot ? 0.3 : 0;
@@ -67,9 +79,11 @@ export function CubeCell({
   }
 
   if (value) {
+    const color = value === 'X' ? xColor : oColor;
+    const shape = value === 'X' ? xShape : oShape;
     return (
       <group position={position}>
-        <MarkerBlock player={value} highlighted={isWinning} opacity={markerOpacity} colorTheme={colorTheme} shape={shape} />
+        <MarkerBlock color={color} shape={shape} highlighted={isWinning} opacity={markerOpacity} />
       </group>
     );
   }

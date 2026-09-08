@@ -1,7 +1,7 @@
 import { useMemo, type RefObject } from 'react';
 import { Line } from '@react-three/drei';
 import { toCoords } from '../game/board';
-import type { Board, BoardSize, MarkerColorTheme, MarkerShape } from '../game/types';
+import type { Board, BoardSize, MarkerShape } from '../game/types';
 import { cellPosition } from './layout';
 import { CubeCell } from './CubeCell';
 import { VictoryPulse } from './VictoryPulse';
@@ -13,8 +13,12 @@ interface CubeGridProps {
   focusedLayer: number | null;
   interactive: boolean;
   blockedCells: ReadonlySet<number>;
-  colorTheme: MarkerColorTheme;
-  shape: MarkerShape;
+  xColor: string;
+  oColor: string;
+  xShape: MarkerShape;
+  oShape: MarkerShape;
+  /** Bumped on every new game/level — forces a clean remount so no cell keeps stale hover/animation state. */
+  gameGeneration: number;
   dragRef: RefObject<boolean>;
   onTap: (index: number) => void;
 }
@@ -26,8 +30,11 @@ export function CubeGrid({
   focusedLayer,
   interactive,
   blockedCells,
-  colorTheme,
-  shape,
+  xColor,
+  oColor,
+  xShape,
+  oShape,
+  gameGeneration,
   dragRef,
   onTap,
 }: CubeGridProps) {
@@ -63,7 +70,7 @@ export function CubeGrid({
     <group>
       {cells.map(({ index, position, y }) => (
         <CubeCell
-          key={index}
+          key={`${gameGeneration}-${index}`}
           position={position}
           value={board[index]}
           index={index}
@@ -71,8 +78,10 @@ export function CubeGrid({
           interactive={interactive && (focusedLayer === null || focusedLayer === y)}
           isWinning={winSet.has(index)}
           blocked={blockedCells.has(index)}
-          colorTheme={colorTheme}
-          shape={shape}
+          xColor={xColor}
+          oColor={oColor}
+          xShape={xShape}
+          oShape={oShape}
           dragRef={dragRef}
           onTap={onTap}
         />

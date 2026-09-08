@@ -4,6 +4,7 @@ import type { Group } from 'three';
 import * as THREE from 'three';
 import { cellPosition } from './layout';
 import { MarkerBlock } from './MarkerBlock';
+import { colorThemeDef } from '../game/cosmetics';
 import type { MarkerColorTheme, MarkerShape, Player } from '../game/types';
 
 const SIZE = 4;
@@ -25,6 +26,7 @@ interface SpinningRigProps {
 }
 
 function SpinningRig({ colorTheme, shape }: SpinningRigProps) {
+  const theme = colorThemeDef(colorTheme);
   const ref = useRef<Group>(null);
   useFrame((state, delta) => {
     if (!ref.current) return;
@@ -50,7 +52,7 @@ function SpinningRig({ colorTheme, shape }: SpinningRigProps) {
       ))}
       {DECOR.map((d, i) => (
         <group key={i} position={cellPosition(SIZE, d.x, d.y, d.z)}>
-          <MarkerBlock player={d.player} size={0.58} animate={false} colorTheme={colorTheme} shape={shape} />
+          <MarkerBlock color={d.player === 'X' ? theme.xColor : theme.oColor} size={0.58} animate={false} shape={shape} />
         </group>
       ))}
     </group>
