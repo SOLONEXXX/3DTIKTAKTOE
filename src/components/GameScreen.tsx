@@ -44,6 +44,7 @@ export function GameScreen() {
 
   const [focusedLayer, setFocusedLayer] = useState<number | null>(null);
   const [showOutcomeFx, setShowOutcomeFx] = useState(false);
+  const [overlayVisible, setOverlayVisible] = useState(false);
 
   const isCampaign = mode === 'campaign';
   const isOnline = mode === 'online';
@@ -56,6 +57,25 @@ export function GameScreen() {
       return () => window.clearTimeout(timeout);
     }
   }, [gameOverReason]);
+
+  // Hold the win/lose modal back for a beat on a real 3-/4-in-a-row finish, so the
+  // winning line stays visible on the board (glowing, pulsing) long enough to actually
+  // see which combination decided the game before the overlay covers it up. Draws,
+  // timeouts, resignations etc. have no line to show, so those pop up immediately.
+  // Level-Modus keeps this brief since a run there is many quick games in a row.
+  useEffect(() => {
+    if (!gameOverReason) {
+      setOverlayVisible(false);
+      return;
+    }
+    if (gameOverReason !== 'line') {
+      setOverlayVisible(true);
+      return;
+    }
+    const revealDelay = isCampaign ? 900 : 1500;
+    const timeout = window.setTimeout(() => setOverlayVisible(true), revealDelay);
+    return () => window.clearTimeout(timeout);
+  }, [gameOverReason, isCampaign]);
 
   useEffect(() => {
     if (!gameOverReason || !winner) return;
@@ -185,7 +205,7 @@ export function GameScreen() {
 
       <WinnerOverlay
         winner={winner?.winner ?? null}
-        reason={gameOverReason}
+        reason={overlayVisible ? gameOverReason : null}
         mode={mode}
         localPlayer={localPlayer}
         campaignLevel={campaignLevelInPlay}
