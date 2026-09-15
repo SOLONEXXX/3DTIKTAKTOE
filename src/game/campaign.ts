@@ -1,6 +1,7 @@
 import type { BoardSize } from './types';
 
-export const CAMPAIGN_MAX_LEVEL = 100;
+/** Levels are endless; this is only the point where the difficulty curve has saturated. */
+export const CAMPAIGN_SOFT_CAP = 45;
 export const CAMPAIGN_SIZES: BoardSize[] = [3, 4];
 
 interface BlockedConfig {
@@ -9,9 +10,11 @@ interface BlockedConfig {
   max: number;
 }
 
+// Blocked cells now start much earlier — they're the second difficulty axis once raw bot
+// skill has saturated, and they make mid-game levels feel structurally different.
 const BLOCKED_CONFIG: Record<BoardSize, BlockedConfig> = {
-  3: { startLevel: 41, every: 8, max: 5 },
-  4: { startLevel: 31, every: 5, max: 10 },
+  3: { startLevel: 16, every: 6, max: 4 },
+  4: { startLevel: 13, every: 4, max: 12 },
 };
 
 /** Deterministic PRNG (mulberry32) so a given level always generates the same layout. */
@@ -26,12 +29,22 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-/** Bot difficulty percent for a given campaign level (1..100), easing in early and hard late. */
+/**
+ * Bot strength for a campaign level, as a saturating exponential.
+ *
+ * The old curve was linear-ish over 100 levels, so the first ~30 levels were all
+ * near-random opponents — players won without learning anything and got bored.
+ * This one gives a guaranteed-feeling win for the first two or three levels, a
+ * noticeable opponent by level 5, a genuine challenge from level 8-10 on, and
+ * near-perfect play past level 30 (where blocked cells take over as the ramp).
+ *
+ *   L1 ≈ 4%   L3 ≈ 21%   L5 ≈ 34%   L8 ≈ 50%   L12 ≈ 65%
+ *   L16 ≈ 76%  L20 ≈ 84%  L30 ≈ 94%  L45 ≈ 98%
+ */
 export function campaignDifficulty(level: number): number {
-  const clamped = Math.min(CAMPAIGN_MAX_LEVEL, Math.max(1, level));
-  const t = (clamped - 1) / (CAMPAIGN_MAX_LEVEL - 1);
-  const eased = Math.pow(t, 1.25);
-  return Math.round(3 + eased * 97);
+  const clamped = Math.max(1, level);
+  const value = 100 * (1 - Math.exp(-(clamped - 0.5) / 11));
+  return Math.min(100, Math.max(3, Math.round(value)));
 }
 
 export function campaignBlockedCount(level: number, size: BoardSize): number {
@@ -64,4 +77,24 @@ export function campaignBlockedCells(level: number, size: BoardSize): Set<number
   }
 
   return new Set(candidates.slice(0, count));
+}
+
+/**
+ * Stars rate *how cleanly* a level was won, which is what gives finished levels a
+ * reason to be replayed later once the player has actually gotten good.
+ *
+ *   ★     won at all
+ *   ★★    won using at most size + 2 of your own stones
+ *   ★★★   won using at most size + 1 of your own stones
+ *
+ * `ownStones` is how many stones the winner placed (a perfect line is exactly `size`).
+ */
+export function starsForWin(ownStones: number, size: BoardSize): number {
+  if (ownStones <= size + 1) return 3;
+  if (ownStones <= size + 2) return 2;
+  return 1;
+}
+
+export function starTargets(size: BoardSize): { two: number; three: number } {
+  return { two: size + 2, three: size + 1 };
 }

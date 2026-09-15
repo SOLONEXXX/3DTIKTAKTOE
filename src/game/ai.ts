@@ -104,19 +104,35 @@ function skillOf(difficulty: Difficulty): number {
 
 function configFor(difficulty: Difficulty, size: BoardSize): DifficultyConfig {
   const skill = skillOf(difficulty);
-  const maxDepth = size === 3 ? 5 : 4;
-  const minCandidates = size === 3 ? 6 : 6;
-  const maxCandidates = size === 3 ? 18 : 16;
+  const maxDepth = size === 3 ? 6 : 4;
+  const minCandidates = 6;
+  const maxCandidates = size === 3 ? 20 : 16;
 
   return {
     depth: Math.max(1, Math.round(1 + skill * (maxDepth - 1))),
     candidateLimit: Math.max(minCandidates, Math.round(minCandidates + skill * (maxCandidates - minCandidates))),
-    // Weak bots often fail to notice a free win or an opponent's threat — that's what makes them feel beatable.
-    winChance: 0.12 + skill * 0.88,
-    blockChance: 0.05 + skill * 0.95,
-    // Strong bots always trust the search; weak ones frequently just play something plausible-looking.
-    randomness: (1 - skill) * 0.75,
+    // Taking a free win and blocking a loss are the two most basic competences, so they
+    // saturate early — a "50%" bot that hands you the game by ignoring an open three
+    // reads as broken, not as easy. Below ~30% it still blunders often, which is what
+    // makes the first campaign levels a guaranteed confidence win.
+    winChance: Math.min(1, 0.25 + skill * 1.6),
+    blockChance: Math.min(1, 0.12 + skill * 1.45),
+    // Squared falloff: weak bots play mostly noise, mid bots only occasionally drift,
+    // strong bots effectively never throw a move away.
+    randomness: (1 - skill) ** 2 * 0.65,
   };
+}
+
+/**
+ * Late in a game the branching factor collapses, so a strong bot can afford to search
+ * far deeper than its nominal difficulty allows. Without this, high-level opponents
+ * still fumble won endgames, which is exactly where a player expects them to be sharp.
+ */
+function endgameDepth(emptyCount: number, size: BoardSize, skill: number): number | null {
+  if (skill < 0.5) return null;
+  if (size === 3 && emptyCount <= 12) return Math.min(emptyCount, 9);
+  if (size === 4 && emptyCount <= 10) return Math.min(emptyCount, 6);
+  return null;
 }
 
 /**
@@ -177,12 +193,14 @@ export function getBotMove(
   }
 
   const candidates = orderedCandidates(board, size, player, config.candidateLimit, blocked);
+  const deepened = endgameDepth(empties.length, size, skillOf(difficulty));
+  const searchDepth = Math.max(config.depth, deepened ?? 0);
   let bestScore = -Infinity;
   let bestMoves: number[] = [];
 
   for (const idx of candidates) {
     const child = applyMove(board, idx, player);
-    const score = minimax(child, size, config.depth - 1, -Infinity, Infinity, false, player, config.candidateLimit, blocked);
+    const score = minimax(child, size, searchDepth - 1, -Infinity, Infinity, false, player, config.candidateLimit, blocked);
     if (score > bestScore) {
       bestScore = score;
       bestMoves = [idx];

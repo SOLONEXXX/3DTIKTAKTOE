@@ -14,6 +14,8 @@ export function AppSettingsScreen() {
   const sfxEnabled = useGameStore((s) => s.sfxEnabled);
   const hapticsEnabled = useGameStore((s) => s.hapticsEnabled);
   const accessibilityGlyphs = useGameStore((s) => s.accessibilityGlyphs);
+  const showThreats = useGameStore((s) => s.showThreats);
+  const setShowThreats = useGameStore((s) => s.setShowThreats);
   const playerName = useGameStore((s) => s.playerName);
   const stats = useGameStore((s) => s.stats);
   const cheatUnlockAll = useGameStore((s) => s.cheatUnlockAll);
@@ -137,6 +139,14 @@ export function AppSettingsScreen() {
             <ToggleSwitch checked={accessibilityGlyphs} onChange={setAccessibilityGlyphs} label={t('appSettings.accessibility')} />
           </div>
           <p className="field-hint">{t('appSettings.accessibilityHint')}</p>
+        </section>
+
+        <section className="menu-section">
+          <div className="volume-row-header">
+            <h2 className="no-margin">{t('appSettings.threats')}</h2>
+            <ToggleSwitch checked={showThreats} onChange={setShowThreats} label={t('appSettings.threats')} />
+          </div>
+          <p className="field-hint">{t('appSettings.threatsHint')}</p>
         </section>
 
         <section className="menu-section">

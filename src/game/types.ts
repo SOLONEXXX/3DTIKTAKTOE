@@ -12,7 +12,7 @@ export interface WinResult {
   line: number[];
 }
 
-export type GameMode = 'bot' | 'local' | 'online' | 'campaign';
+export type GameMode = 'bot' | 'local' | 'online' | 'campaign' | 'ranked' | 'survival' | 'daily';
 
 /** Bot strength as a percentage: 1 = near-random, 100 = unbeatable. */
 export type Difficulty = number;
@@ -32,7 +32,17 @@ export type BackgroundTheme =
   | 'abyss'
   | 'plasma'
   | 'frost'
-  | 'copper';
+  | 'copper'
+  | 'synthwave'
+  | 'emerald'
+  | 'ember'
+  | 'galaxy'
+  | 'biohazard'
+  | 'royal'
+  | 'obsidian'
+  | 'circuit'
+  | 'mono'
+  | 'prism';
 
 export type MarkerColorTheme =
   | 'classic'
@@ -46,9 +56,21 @@ export type MarkerColorTheme =
   | 'forest'
   | 'royal'
   | 'candy'
-  | 'obsidian';
+  | 'obsidian'
+  | 'ember'
+  | 'oceanic'
+  | 'venom'
+  | 'sunrise'
+  | 'midnight'
+  | 'chrome'
+  | 'bloodmoon';
 
 export type MarkerShape = 'cube' | 'orb' | 'diamond' | 'pyramid' | 'figures' | 'prism' | 'star' | 'ring';
+
+/** Surface treatment applied on top of shape + color — the second cosmetic axis. */
+export type MarkerMaterial = 'standard' | 'metal' | 'glass' | 'neon' | 'holo' | 'marble';
+
+export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 
 export interface TimeControl {
   /** starting time per player, in milliseconds */

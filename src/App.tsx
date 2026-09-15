@@ -3,11 +3,15 @@ import { trackForScreen, useGameStore } from './game/store';
 import { audio } from './game/audio';
 import { HomeScreen } from './components/HomeScreen';
 import { SettingsScreen } from './components/SettingsScreen';
-import { CosmeticsScreen } from './components/CosmeticsScreen';
+import { ShopScreen } from './components/ShopScreen';
 import { AppSettingsScreen } from './components/AppSettingsScreen';
-import { CampaignScreen } from './components/CampaignScreen';
+import { LevelMapScreen } from './components/LevelMapScreen';
+import { RankedScreen } from './components/RankedScreen';
+import { ProfileScreen } from './components/ProfileScreen';
 import { OnlineLobby } from './components/OnlineLobby';
 import { GameScreen } from './components/GameScreen';
+import { StatusBar } from './components/StatusBar';
+import { TabBar, TAB_SCREENS } from './components/TabBar';
 import './App.css';
 
 function App() {
@@ -21,19 +25,17 @@ function App() {
   }, [tick]);
 
   useEffect(() => {
-    // A shared invite link (?join=CODE) drops the visitor straight into the online
-    // lobby, which reads and consumes the same query param to auto-join.
+    // A shared invite link (?join=CODE) drops the visitor straight into the online lobby.
     if (new URLSearchParams(window.location.search).has('join')) {
       useGameStore.setState({ screen: 'lobby' });
     }
   }, []);
 
   useEffect(() => {
-    // Browsers only allow audio once a real user gesture has happened — kick off
-    // the context-appropriate music track on the very first such gesture anywhere in the
-    // app. Some mobile browsers (notably iOS Safari) don't count a bare "pointerdown" as
-    // a valid unlocking gesture, so listen broadly and unlock exactly once.
+    // Browsers only allow audio after a real user gesture. Some mobile browsers don't
+    // count a bare pointerdown, so listen broadly and unlock exactly once.
     let unlocked = false;
+    const events: (keyof WindowEventMap)[] = ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'];
     const startOnFirstInteraction = () => {
       if (unlocked) return;
       unlocked = true;
@@ -42,20 +44,29 @@ function App() {
       audio.playTrack(trackForScreen(state.screen, state.mode));
       events.forEach((event) => window.removeEventListener(event, startOnFirstInteraction));
     };
-    const events: (keyof WindowEventMap)[] = ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'];
     events.forEach((event) => window.addEventListener(event, startOnFirstInteraction, { passive: true }));
     return () => events.forEach((event) => window.removeEventListener(event, startOnFirstInteraction));
   }, []);
 
+  const isTabScreen = TAB_SCREENS.includes(screen);
+
   return (
     <div className="app-shell">
-      {screen === 'home' && <HomeScreen />}
-      {screen === 'settings' && <SettingsScreen />}
-      {screen === 'cosmetics' && <CosmeticsScreen />}
-      {screen === 'app-settings' && <AppSettingsScreen />}
-      {screen === 'campaign' && <CampaignScreen />}
-      {screen === 'lobby' && <OnlineLobby onBack={goHome} />}
-      {screen === 'game' && <GameScreen />}
+      {isTabScreen && <StatusBar />}
+
+      <div className={`screen-host ${isTabScreen ? 'with-chrome' : ''}`}>
+        {screen === 'home' && <HomeScreen />}
+        {screen === 'levels' && <LevelMapScreen />}
+        {screen === 'ranked' && <RankedScreen />}
+        {screen === 'shop' && <ShopScreen />}
+        {screen === 'profile' && <ProfileScreen />}
+        {screen === 'settings' && <SettingsScreen />}
+        {screen === 'app-settings' && <AppSettingsScreen />}
+        {screen === 'lobby' && <OnlineLobby onBack={goHome} />}
+        {screen === 'game' && <GameScreen />}
+      </div>
+
+      {isTabScreen && <TabBar />}
     </div>
   );
 }

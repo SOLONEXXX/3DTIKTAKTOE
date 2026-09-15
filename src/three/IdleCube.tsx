@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { cellPosition } from './layout';
 import { MarkerBlock } from './MarkerBlock';
 import { colorThemeDef } from '../game/cosmetics';
-import type { MarkerColorTheme, MarkerShape, Player } from '../game/types';
+import type { MarkerColorTheme, MarkerMaterial, MarkerShape, Player } from '../game/types';
 
 const SIZE = 4;
 const DECOR: { x: number; y: number; z: number; player: Player }[] = [
@@ -23,9 +23,10 @@ const edgesGeometry = new THREE.EdgesGeometry(boxGeometry);
 interface SpinningRigProps {
   colorTheme: MarkerColorTheme;
   shape: MarkerShape;
+  material: MarkerMaterial;
 }
 
-function SpinningRig({ colorTheme, shape }: SpinningRigProps) {
+function SpinningRig({ colorTheme, shape, material }: SpinningRigProps) {
   const theme = colorThemeDef(colorTheme);
   const ref = useRef<Group>(null);
   useFrame((state, delta) => {
@@ -52,7 +53,13 @@ function SpinningRig({ colorTheme, shape }: SpinningRigProps) {
       ))}
       {DECOR.map((d, i) => (
         <group key={i} position={cellPosition(SIZE, d.x, d.y, d.z)}>
-          <MarkerBlock color={d.player === 'X' ? theme.xColor : theme.oColor} size={0.58} animate={false} shape={shape} />
+          <MarkerBlock
+            color={d.player === 'X' ? theme.xColor : theme.oColor}
+            size={0.58}
+            animate={false}
+            shape={shape}
+            material={material}
+          />
         </group>
       ))}
     </group>
@@ -62,15 +69,17 @@ function SpinningRig({ colorTheme, shape }: SpinningRigProps) {
 interface IdleCubeProps {
   colorTheme?: MarkerColorTheme;
   shape?: MarkerShape;
+  material?: MarkerMaterial;
 }
 
-export function IdleCube({ colorTheme = 'classic', shape = 'cube' }: IdleCubeProps) {
+export function IdleCube({ colorTheme = 'classic', shape = 'cube', material = 'standard' }: IdleCubeProps) {
   return (
     <Canvas camera={{ position: [6.5, 5.5, 8], fov: 42 }} gl={{ antialias: true, alpha: true }} dpr={[1, 1.6]}>
       <ambientLight intensity={0.55} />
       <directionalLight position={[6, 8, 5]} intensity={0.9} />
       <directionalLight position={[-6, -2, -4]} intensity={0.3} color="#6d8dff" />
-      <SpinningRig colorTheme={colorTheme} shape={shape} />
+      <pointLight position={[0, 5, 6]} intensity={22} distance={20} color="#9fb3ff" />
+      <SpinningRig colorTheme={colorTheme} shape={shape} material={material} />
     </Canvas>
   );
 }

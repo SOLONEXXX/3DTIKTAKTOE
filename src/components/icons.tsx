@@ -161,6 +161,120 @@ export function ShareIcon({ className }: IconProps) {
   );
 }
 
+export function HomeIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M3 11 L12 4 L21 11 V20 a1 1 0 0 1 -1 1 h-5 v-6 h-6 v6 H4 a1 1 0 0 1 -1 -1 Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function MapIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M3 6.5 L9 4 L15 6.5 L21 4 V17.5 L15 20 L9 17.5 L3 20 Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M9 4 V17.5 M15 6.5 V20" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
+}
+
+export function RankIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 2.5 L20 5.5 V11 c0 5-3.4 8.5-8 10.5C7.4 19.5 4 16 4 11 V5.5 Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M12 8 L13.4 11 L16.5 11.3 L14.2 13.4 L14.9 16.5 L12 14.9 L9.1 16.5 L9.8 13.4 L7.5 11.3 L10.6 11 Z" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function ShopIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4 8 H20 L18.7 20 a1 1 0 0 1 -1 1 H6.3 a1 1 0 0 1 -1 -1 Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M8.5 11 V7 a3.5 3.5 0 0 1 7 0 v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function ProfileIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="8.5" r="4" stroke="currentColor" strokeWidth="2" />
+      <path d="M4.5 20.5 c0-4.2 3.4-6.5 7.5-6.5 s7.5 2.3 7.5 6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function ShardIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 2 L20 9 L12 22 L4 9 Z" fill="currentColor" opacity="0.9" />
+      <path d="M4 9 H20 M12 2 L12 22" stroke="#07080f" strokeOpacity="0.35" strokeWidth="1.3" />
+    </svg>
+  );
+}
+
+export function StarIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M12 3 L14.6 9.1 L21.2 9.7 L16.2 14 L17.7 20.5 L12 17 L6.3 20.5 L7.8 14 L2.8 9.7 L9.4 9.1 Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+export function FlameIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M12 2.5 c3.5 4 5.5 6.2 5.5 9.6 A5.5 5.5 0 0 1 12 21.5 a5.5 5.5 0 0 1 -5.5 -9.4 c1.2 1 2.2 1.2 2.8 .6 C8 9.5 9.6 6 12 2.5 Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+export function CalendarIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="3.5" y="5" width="17" height="16" rx="3" stroke="currentColor" strokeWidth="2" />
+      <path d="M3.5 10 H20.5 M8 3 V6.5 M16 3 V6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="12" cy="15.5" r="1.8" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function SwordsIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M3 3 L9.5 9.5 M14.5 14.5 L21 21 M21 3 L14.5 9.5 M9.5 14.5 L3 21" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+      <circle cx="12" cy="12" r="2.4" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
+}
+
+export function CheckIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M5 12.5 L10 17.5 L19 7" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function InfinityIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M8.5 8.5 a3.5 3.5 0 1 0 0 7 c2.5 0 4-7 7-7 a3.5 3.5 0 1 1 0 7 c-3 0-4.5-7-7-7 Z"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
 export function BackIcon({ className }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
